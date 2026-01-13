@@ -385,18 +385,18 @@ def queryProjectStatistics():
 
 def queryAllExchangeNames():
     '''
-    查询所有交易所名称
-    :return: 交易所名称列表
+    查询所有交易所名称和平台
+    :return: 交易所信息列表，包含 name 和 platform
     '''
     logger.debug('[queryAllExchangeNames] 开始查询所有交易所名称')
     session = sessionmaker(getDbEngine())()
     try:
-        result = session.query(ExchangeInfo.name).filter(
+        result = session.query(ExchangeInfo.name, ExchangeInfo.platform).filter(
             ExchangeInfo.name.isnot(None)
         ).distinct().all()
-        names = [row[0] for row in result if row[0]]
-        logger.debug(f'[queryAllExchangeNames] 查询到 {len(names)} 个交易所名称')
-        return names
+        exchanges = [{'name': row[0], 'platform': row[1]} for row in result if row[0]]
+        logger.debug(f'[queryAllExchangeNames] 查询到 {len(exchanges)} 个交易所')
+        return exchanges
     finally:
         session.close()
 

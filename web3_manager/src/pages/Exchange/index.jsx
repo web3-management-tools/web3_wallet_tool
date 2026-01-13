@@ -208,12 +208,22 @@ export default function Exchange() {
     setLoading(true);
     try {
       const res = await getExchangeNames();
+      console.log('交易所列表响应:', res);
+      console.log('响应成功:', res.success);
+      console.log('响应数据类型:', typeof res.data);
+      console.log('响应数据:', res.data);
       if (res.success) {
+        console.log('交易所数据:', res.data);
+        console.log('第一个交易所:', res.data?.[0]);
+        if (res.data && res.data.length > 0) {
+            console.log('第一个交易所的platform:', res.data[0].platform);
+        }
         setExchanges(res.data || []);
       } else {
         handleApiError(res, setMessage);
       }
     } catch (error) {
+      console.error('加载交易所列表错误:', error);
       setMessage({ type: 'error', text: '获取数据失败' });
     } finally {
       setLoading(false);
@@ -348,6 +358,25 @@ export default function Exchange() {
     } finally {
       setLoading(false);
     }
+  };
+
+  const handleQuickWithdraw = (name) => {
+    if (!password) {
+      setMessage({ type: 'error', text: '请先输入API加密密码' });
+      return;
+    }
+    // 切换到提现页面
+    setActiveTab('withdraw');
+    // 自动选中交易所
+    setWithdrawConfig(prev => ({ ...prev, exchange: name }));
+    // 自动填入密码
+    setDecryptPwdInput(password);
+    // 清空之前的任务和日志
+    setWithdrawTasks([]);
+    setWithdrawLogs([]);
+    setIsApiVerified(false);
+    setVerifiedApiInfo(null);
+    setMessage(null);
   };
 
   const resetForm = () => {
@@ -725,23 +754,27 @@ export default function Exchange() {
             </div>
           ) : exchanges.length > 0 ? (
             <div className="exchange-grid">
-              {exchanges.map((name) => (
-                <div key={name} className="exchange-card">
+              {console.log('渲染交易所列表:', exchanges)}
+              {exchanges.map((exchange, index) => (
+                <div key={exchange.name || index} className="exchange-card">
                   <div className="exchange-card-header">
                     <Building2 size={24} />
-                    <span className="exchange-name">{name}</span>
+                    <span className="exchange-name">{exchange.name || '未知'}</span>
                   </div>
                   <div className="exchange-card-body">
                     <div className="exchange-info">
                       <span className="info-label">平台</span>
-                      <span className="platform-badge">{name.split('_')[0]}</span>
+                      <span className="platform-badge">{exchange.platform || '未知'}</span>
                     </div>
                   </div>
                   <div className="exchange-card-footer">
-                    <button className="action-btn edit" onClick={() => handleEdit(name)}>
+                    <button className="action-btn edit" onClick={() => handleEdit(exchange.name)}>
                       <Edit2 size={14} /> 编辑
                     </button>
-                    <button className="action-btn delete" onClick={() => handleDelete(name)}>
+                    <button className="action-btn withdraw" onClick={() => handleQuickWithdraw(exchange.name)}>
+                      <ArrowUpRight size={14} /> 提现
+                    </button>
+                    <button className="action-btn delete" onClick={() => handleDelete(exchange.name)}>
                       <Trash2 size={14} /> 删除
                     </button>
                   </div>
@@ -951,8 +984,8 @@ export default function Exchange() {
                   onChange={handleExchangeChange}
                 >
                   <option value="">选择交易所</option>
-                  {exchanges.map(name => (
-                    <option key={name} value={name}>{name}</option>
+                  {exchanges.map(exchange => (
+                    <option key={exchange.name} value={exchange.name}>{exchange.name}</option>
                   ))}
                 </select>
               </div>

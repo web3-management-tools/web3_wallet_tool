@@ -182,6 +182,9 @@
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
   gap: 16px;
+  max-height: calc(100vh - 300px);
+  overflow-y: auto;
+  padding-right: 4px;
 }
 
 .exchange-card {
@@ -249,6 +252,68 @@
   border-top: 1px solid var(--border-color);
 }
 
+/* Exchange List */
+.exchange-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  max-height: calc(100vh - 300px);
+  overflow-y: auto;
+}
+
+.exchange-list-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 12px 16px;
+  background: white;
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-md);
+  transition: var(--transition);
+}
+
+.exchange-list-item:hover {
+  border-color: var(--primary-color);
+  box-shadow: var(--shadow-sm);
+}
+
+.exchange-item-info {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex: 1;
+  min-width: 0;
+}
+
+.exchange-item-info svg {
+  flex-shrink: 0;
+  color: var(--primary-color);
+}
+
+.exchange-item-info .exchange-name {
+  font-size: 0.9375rem;
+  font-weight: 700;
+  color: var(--text-main);
+  word-break: break-all;
+}
+
+.exchange-item-info .platform-badge {
+  flex-shrink: 0;
+  background: var(--primary-light);
+  color: var(--primary-color);
+  padding: 4px 10px;
+  border-radius: 12px;
+  font-size: 0.75rem;
+  font-weight: 700;
+  text-transform: capitalize;
+}
+
+.exchange-item-actions {
+  display: flex;
+  gap: 8px;
+  flex-shrink: 0;
+}
+
 .action-btn {
   flex: 1;
   display: flex;
@@ -283,6 +348,17 @@
 
 .action-btn.delete:hover {
   background: var(--error-color);
+  color: white;
+}
+
+.action-btn.withdraw {
+  background: white;
+  color: var(--success-color);
+  border: 1px solid var(--success-color);
+}
+
+.action-btn.withdraw:hover {
+  background: var(--success-color);
   color: white;
 }
 

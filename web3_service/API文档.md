@@ -495,7 +495,7 @@ GET /wallet/mapping/one?sourceAddress=0xSource1...
 **接口信息**
 - **URL**: `/exchange/names`
 - **Method**: `GET`
-- **描述**: 获取所有已配置的交易所名称列表
+- **描述**: 获取所有已配置的交易所名称和平台列表
 
 **请求参数**
 无
@@ -504,10 +504,30 @@ GET /wallet/mapping/one?sourceAddress=0xSource1...
 ```json
 {
   "code": 20000,
-  "data": ["binance_main", "okx_trading", "bitget_spot"],
+  "data": [
+    {
+      "name": "binance_main",
+      "platform": "binance"
+    },
+    {
+      "name": "okx_trading",
+      "platform": "okx"
+    },
+    {
+      "name": "bitget_spot",
+      "platform": "bitget"
+    }
+  ],
   "msg": "ok"
 }
 ```
+
+**响应字段说明**
+
+| 字段 | 类型 | 说明 |
+|------|------|------|
+| data[].name | string | 交易所名称（唯一标识） |
+| data[].platform | string | 平台名称（binance, okx, bitget, gate, bybit） |
 
 ---
 
