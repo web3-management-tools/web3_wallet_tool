@@ -1,0 +1,233 @@
+.import-page {
+  max-width: 1200px;
+  margin: 0 auto;
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+}
+
+.import-grid {
+  display: grid;
+  grid-template-columns: 350px 1fr;
+  gap: 24px;
+  align-items: stretch;
+}
+
+.left-col {
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+}
+
+.setup-card {
+  background: white;
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-lg);
+  padding: 24px;
+  position: relative;
+  box-shadow: var(--shadow-sm);
+}
+
+.full-height {
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+}
+
+.card-tag {
+  position: absolute;
+  top: -10px;
+  right: 24px;
+  background: var(--primary-color);
+  color: white;
+  font-size: 0.75rem;
+  font-weight: 800;
+  padding: 2px 12px;
+  border-radius: 20px;
+}
+
+.setup-card h3 {
+  font-size: 1rem;
+  margin-bottom: 24px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.setup-grid-vertical {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.input-group {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.input-group label {
+  font-size: 0.8125rem;
+  font-weight: 700;
+  color: var(--text-secondary);
+}
+
+.input-group input {
+  height: 42px;
+  padding: 0 12px;
+  background: var(--bg-main);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-md);
+  transition: var(--transition);
+}
+
+.input-group input:focus {
+  outline: none;
+  border-color: var(--primary-color);
+  background: white;
+  box-shadow: 0 0 0 4px var(--primary-light);
+}
+
+.execute-btn {
+  height: 48px;
+  background: var(--primary-color);
+  color: white;
+  border: none;
+  border-radius: var(--radius-md);
+  font-weight: 700;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  margin-top: 12px;
+  transition: var(--transition);
+}
+
+.execute-btn:hover {
+  background: var(--primary-hover);
+  transform: translateY(-1px);
+}
+
+/* Data Form Area */
+.data-form {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.upload-section {
+  display: flex;
+  justify-content: flex-end;
+}
+
+.upload-btn {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 16px;
+  background: white;
+  border: 1px solid var(--primary-color);
+  border-radius: var(--radius-md);
+  color: var(--primary-color);
+  font-size: 0.8125rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: var(--transition);
+}
+
+.upload-btn:hover {
+  background: var(--primary-color);
+  color: white;
+}
+
+.format-preview {
+  display: flex;
+  gap: 16px;
+  padding: 12px;
+  background: var(--bg-main);
+  border-radius: var(--radius-md);
+}
+
+.format-item {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.format-item strong {
+  font-size: 0.75rem;
+  color: var(--text-secondary);
+}
+
+.format-item code {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 0.75rem;
+  color: var(--primary-color);
+}
+
+.data-form textarea {
+  flex: 1;
+  width: 100%;
+  padding: 16px;
+  background: var(--bg-main);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-md);
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 0.875rem;
+  resize: none;
+  transition: var(--transition);
+}
+
+.data-form textarea:focus {
+  outline: none;
+  border-color: var(--primary-color);
+  background: white;
+  box-shadow: 0 0 0 4px var(--primary-light);
+}
+
+/* Info Section */
+.info-card {
+  border-radius: var(--radius-lg);
+  padding: 24px;
+}
+
+.info-blue {
+  background: var(--primary-light);
+  border: 1px solid #dbeafe;
+}
+
+.info-card h3 {
+  font-size: 1rem;
+  color: #1e40af;
+  margin-bottom: 16px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.info-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 24px;
+}
+
+.info-item strong {
+  display: block;
+  font-size: 0.875rem;
+  color: #1e40af;
+  margin-bottom: 4px;
+}
+
+.info-item p {
+  font-size: 0.8125rem;
+  color: #1e40af;
+  line-height: 1.5;
+  margin: 0;
+  opacity: 0.8;
+}
+
+@media (max-width: 900px) {
+  .import-grid { grid-template-columns: 1fr; }
+}

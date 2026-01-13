@@ -1,0 +1,147 @@
+.security-notice-page {
+  position: fixed;
+  inset: 0;
+  background: radial-gradient(circle at center, #1e293b 0%, #0f172a 100%);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 9999;
+  padding: 20px;
+}
+
+.notice-card {
+  max-width: 500px;
+  background: white;
+  border-radius: var(--radius-lg);
+  padding: 40px;
+  text-align: center;
+  box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
+  animation: scaleIn 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+@keyframes scaleIn {
+  from { transform: scale(0.9); opacity: 0; }
+  to { transform: scale(1); opacity: 1; }
+}
+
+.icon-badge {
+  width: 80px;
+  height: 80px;
+  background: #fef2f2;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin: 0 auto 24px;
+}
+
+.notice-card h1 {
+  font-size: 1.5rem;
+  color: #111827;
+  margin-bottom: 16px;
+}
+
+.main-desc {
+  color: #4b5563;
+  line-height: 1.6;
+  font-size: 1rem;
+  margin-bottom: 32px;
+}
+
+.highlight {
+  color: #ef4444;
+  font-weight: 800;
+  background: #fee2e2;
+  padding: 2px 6px;
+  border-radius: 4px;
+}
+
+.reason-box {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+  text-align: left;
+  background: #f8fafc;
+  padding: 20px;
+  border-radius: var(--radius-md);
+  margin-bottom: 32px;
+}
+
+.reason-item {
+  display: flex;
+  gap: 16px;
+  color: #334155;
+}
+
+.reason-item strong {
+  display: block;
+  font-size: 0.875rem;
+  margin-bottom: 2px;
+}
+
+.reason-item p {
+  font-size: 0.75rem;
+  color: #64748b;
+  margin: 0;
+  line-height: 1.4;
+}
+
+.guide-section h3 {
+  font-size: 0.875rem;
+  color: #111827;
+  margin-bottom: 16px;
+}
+
+.steps-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+  margin-bottom: 32px;
+}
+
+.step-item {
+  background: #f1f5f9;
+  padding: 12px;
+  border-radius: var(--radius-sm);
+}
+
+.step-item strong {
+  display: block;
+  font-size: 0.75rem;
+  color: #64748b;
+  margin-bottom: 4px;
+}
+
+.step-item code {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 0.8125rem;
+  color: #0f172a;
+  font-weight: 700;
+}
+
+.reload-btn {
+  width: 100%;
+  height: 48px;
+  background: #0f172a;
+  color: white;
+  border: none;
+  border-radius: var(--radius-md);
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.reload-btn:hover {
+  background: #1e293b;
+  transform: translateY(-1px);
+}
+
+.footer-tip {
+  margin-top: 20px;
+  font-size: 0.6875rem;
+  color: #94a3b8;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+}

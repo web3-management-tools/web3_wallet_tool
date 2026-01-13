@@ -1,0 +1,6 @@
+services:
+  web3-manager:
+    build: .
+    ports:
+      - "5343:80"
+    restart: unless-stopped

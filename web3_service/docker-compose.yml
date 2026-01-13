@@ -1,0 +1,20 @@
+version: '3.8'
+
+services:
+  web3_service:
+    build: .
+    container_name: web3_service
+    restart: unless-stopped
+    environment:
+      MYSQL_HOST: ${MYSQL_HOST:-127.0.0.1}
+      MYSQL_PORT: ${MYSQL_PORT:-3306}
+      MYSQL_USER: ${MYSQL_USER:-root}
+      MYSQL_PASSWORD: ${MYSQL_PASSWORD:-1q2w3e4r5t}
+      MYSQL_DATABASE: ${MYSQL_DATABASE:-lumao}
+      FLASK_HOST: ${FLASK_HOST:-0.0.0.0}
+      FLASK_PORT: ${FLASK_PORT:-3000}
+      LOG_LEVEL: ${LOG_LEVEL:-INFO}
+    ports:
+      - "${FLASK_PORT:-3000}:3000"
+    volumes:
+      - ./mysql_data:/app/mysql_data
