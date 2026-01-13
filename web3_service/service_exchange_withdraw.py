@@ -103,9 +103,12 @@ def get_exchange_client(platform, api_key, secret, password=None, proxy_ip=None)
             'enableRateLimit': True,
         }
 
-        # 添加代理配置
+        # 添加代理配置（使用 proxies 而不是 proxy，避免 URL 拼接问题）
         if proxy_url:
-            common_params['proxy'] = proxy_url
+            common_params['proxies'] = {
+                'http': proxy_url,
+                'https': proxy_url
+            }
 
         if platform == 'binance':
             client = ccxt.binance({
@@ -190,6 +193,10 @@ def withdraw(exchange_name, pwd, to_address, network, coin, amount):
 
     try:
         # 4. 执行提现
+        # CCXT withdraw 方法签名: withdraw(code, amount, address, tag=None, params={})
+        # network 参数需要通过 params 字典传递，键名为 'network'
+        params = {'network': network}
+
         if platform == 'binance':
             # Binance 提现
             response = client.withdraw(
@@ -197,17 +204,17 @@ def withdraw(exchange_name, pwd, to_address, network, coin, amount):
                 amount=amount,
                 address=to_address,
                 tag=None,  # 大部分代币不需要tag
-                network=network
+                params=params
             )
 
         elif platform == 'bitget':
-            # Bitget 提现
+            # Bitget 提现 (必须提供 network 参数)
             response = client.withdraw(
                 code=coin,
                 amount=amount,
                 address=to_address,
                 tag=None,
-                network=network
+                params=params
             )
 
         elif platform == 'okx':
@@ -217,8 +224,7 @@ def withdraw(exchange_name, pwd, to_address, network, coin, amount):
                 amount=amount,
                 address=to_address,
                 tag=None,
-                network=network,
-                chainName=network
+                params=params
             )
 
         elif platform == 'gate':
@@ -227,7 +233,8 @@ def withdraw(exchange_name, pwd, to_address, network, coin, amount):
                 code=coin,
                 amount=amount,
                 address=to_address,
-                network=network
+                tag=None,
+                params=params
             )
 
         elif platform == 'bybit':
@@ -236,7 +243,8 @@ def withdraw(exchange_name, pwd, to_address, network, coin, amount):
                 code=coin,
                 amount=amount,
                 address=to_address,
-                network=network
+                tag=None,
+                params=params
             )
 
         else:

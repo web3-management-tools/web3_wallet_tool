@@ -30,6 +30,7 @@ import { getExchangeNames, getExchangeOne, insertExchange, updateExchange, delet
 import { getWalletProjects, walletList } from '../../api/wallet';
 import { handleApiError } from '../../api/errorHandler';
 import { encryptPwd, decryptPwd } from '../../utils/crypto';
+import * as XLSX from 'xlsx';
 import './index.css';
 
 const CHAINS = [
@@ -482,7 +483,7 @@ export default function Exchange() {
     if (!task.selected || task.status === 'success') return;
 
     updateTask(index, { status: 'processing', error: '' });
-    addWithdrawLog(`开始执行: ${task.address.slice(0, 8)}...${task.address.slice(-6)}`, 'info');
+    addWithdrawLog(`开始执行: ${task.address}`, 'info');
 
     try {
       const res = await withdraw({
@@ -496,15 +497,15 @@ export default function Exchange() {
 
       if (res.success) {
         updateTask(index, { status: 'success', txHash: res.data?.txHash || '' });
-        addWithdrawLog(`✅ 成功: ${task.amount} ${task.token} → ${task.address.slice(0, 8)}...`, 'success');
+        addWithdrawLog(`✅ 成功: ${task.amount} ${task.token} → ${task.address}`, 'success');
       } else {
         const errorMsg = res.msg || '提现请求被拒绝';
         updateTask(index, { status: 'error', error: errorMsg });
-        addWithdrawLog(`❌ 失败: ${task.address.slice(0, 8)}... - ${errorMsg}`, 'error');
+        addWithdrawLog(`❌ 失败: ${task.address} - ${errorMsg}`, 'error');
       }
     } catch (error) {
       updateTask(index, { status: 'error', error: error.message || '网络错误' });
-      addWithdrawLog(`❌ 失败: ${task.address.slice(0, 8)}... - ${error.message || '网络错误'}`, 'error');
+      addWithdrawLog(`❌ 失败: ${task.address} - ${error.message || '网络错误'}`, 'error');
     }
   };
 
@@ -749,7 +750,7 @@ export default function Exchange() {
                 </div>
               </div>
               <div className="input-group">
-                <label>IP</label>
+                <label>代理IP</label>
                 <input
                   type="text"
                   value={formData.ip}
@@ -850,13 +851,6 @@ export default function Exchange() {
               )}
             </div>
 
-            {projectAddresses.length > 0 && (
-              <div className="address-count-info">
-                <CheckCircle size={14} />
-                <span>已加载 {projectAddresses.length} 个地址</span>
-              </div>
-            )}
-
             {/* 交易所选择区域 */}
             <div className="exchange-verify-section">
               <div className="input-group">
@@ -931,13 +925,25 @@ export default function Exchange() {
                     <span className="api-info-label">Secret</span>
                     <span className="api-info-value">{maskSensitive(verifiedApiInfo.secret, 'secret')}</span>
                   </div>
+                  {verifiedApiInfo.password && (
+                    <div className="api-info-item">
+                      <span className="api-info-label">Password</span>
+                      <span className="api-info-value">{maskSensitive(verifiedApiInfo.password, 'secret')}</span>
+                    </div>
+                  )}
+                  {verifiedApiInfo.ip && (
+                    <div className="api-info-item">
+                      <span className="api-info-label">代理IP</span>
+                      <span className="api-info-value">{verifiedApiInfo.ip}</span>
+                    </div>
+                  )}
                 </div>
               </div>
             )}
 
             <div className="withdraw-form-grid">
               <div className="input-group">
-                <label><Coins size={14} /> 网络/链</label>
+                <label><Coins size={14} /> 网络/链 <span className="hint-text">（请从交易所确认网络名称）</span></label>
                 <input
                   list="chain-options"
                   value={withdrawConfig.chain || ''}
@@ -1119,7 +1125,7 @@ export default function Exchange() {
                           </div>
                         </td>
                         <td className="addr-cell">
-                          <span className="addr-mono">{task.address.slice(0, 10)}...{task.address.slice(-6)}</span>
+                          <span className="addr-mono">{task.address}</span>
                         </td>
                         <td className="amount-cell">
                           {task.amount} {task.token}

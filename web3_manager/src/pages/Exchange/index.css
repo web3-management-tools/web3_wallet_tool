@@ -447,7 +447,7 @@
   background: white;
   border: 1px solid var(--border-color);
   border-radius: var(--radius-md);
-  padding: 20px;
+  padding: 16px;
   overflow-y: auto;
   max-height: none;
 }
@@ -466,9 +466,9 @@
 .withdraw-card-header {
   display: flex;
   align-items: center;
-  gap: 10px;
-  margin-bottom: 20px;
-  padding-bottom: 16px;
+  gap: 8px;
+  margin-bottom: 12px;
+  padding-bottom: 12px;
   border-bottom: 1px solid var(--border-color);
   color: var(--primary-color);
 }
@@ -484,9 +484,9 @@
 .exchange-verify-section {
   display: grid;
   grid-template-columns: 1fr 1fr 100px;
-  gap: 12px;
-  margin-bottom: 16px;
-  padding-bottom: 16px;
+  gap: 10px;
+  margin-bottom: 12px;
+  padding-bottom: 12px;
   border-bottom: 1px solid var(--border-color);
 }
 
@@ -504,16 +504,16 @@
 
 /* 地址来源选择 */
 .address-source-section {
-  margin-bottom: 16px;
+  margin-bottom: 12px;
 }
 
 .address-mode-tabs {
   display: flex;
   background: #e2e8f0;
-  padding: 4px;
+  padding: 3px;
   border-radius: var(--radius-sm);
-  gap: 4px;
-  margin-bottom: 12px;
+  gap: 3px;
+  margin-bottom: 8px;
 }
 
 .address-mode-tabs button {
@@ -558,7 +558,7 @@
 /* 金额范围输入组 */
 .amount-range-group {
   display: flex;
-  gap: 12px;
+  gap: 10px;
 }
 
 .amount-range-group .input-group {
@@ -612,20 +612,20 @@
 .address-count-info {
   display: flex;
   align-items: center;
-  gap: 8px;
-  padding: 10px 12px;
+  gap: 6px;
+  padding: 8px 10px;
   background: #d1fae5;
   border-radius: var(--radius-sm);
   color: #065f46;
   font-size: 0.8125rem;
   font-weight: 600;
-  margin-bottom: 16px;
+  margin-bottom: 12px;
 }
 
 /* 全宽按钮 */
 .generate-btn.full-width {
   width: 100%;
-  margin-bottom: 8px;
+  margin-bottom: 6px;
 }
 
 .clear-btn.full-width {
@@ -654,8 +654,8 @@
   background: var(--bg-main);
   border: 1px solid var(--border-color);
   border-radius: var(--radius-sm);
-  padding: 12px;
-  margin-bottom: 16px;
+  padding: 10px;
+  margin-bottom: 12px;
 }
 
 .api-info-header {
@@ -671,7 +671,7 @@
 .api-info-content {
   display: grid;
   grid-template-columns: 1fr 1fr;
-  gap: 8px;
+  gap: 6px;
 }
 
 .api-info-item {
@@ -696,8 +696,8 @@
 .withdraw-form-grid {
   display: grid;
   grid-template-columns: 1fr 1fr;
-  gap: 12px;
-  margin-bottom: 16px;
+  gap: 10px;
+  margin-bottom: 12px;
 }
 
 .withdraw-form-grid .input-group {
