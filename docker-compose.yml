@@ -1,0 +1,56 @@
+version: '3.8'
+
+services:
+  # 后端服务 - Web3 Wallet Service
+  web3_service:
+    build:
+      context: ./web3_service
+      dockerfile: Dockerfile
+    container_name: web3_service
+    restart: unless-stopped
+    environment:
+      MYSQL_HOST: ${MYSQL_HOST:-127.0.0.1}
+      MYSQL_PORT: ${MYSQL_PORT:-3306}
+      MYSQL_USER: ${MYSQL_USER:-root}
+      MYSQL_PASSWORD: ${MYSQL_PASSWORD:-1q2w3e4r5t}
+      MYSQL_DATABASE: ${MYSQL_DATABASE:-lumao}
+      FLASK_HOST: ${FLASK_HOST:-0.0.0.0}
+      FLASK_PORT: ${FLASK_PORT:-3000}
+      LOG_LEVEL: ${LOG_LEVEL:-INFO}
+    ports:
+      - "${FLASK_PORT:-3000}:3000"
+    volumes:
+      - ./web3_service/mysql_data:/app/mysql_data
+    networks:
+      - web3_network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3000/"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
+  # 前端服务 - Web3 Manager
+  web3_manager:
+    build:
+      context: ./web3_manager
+      dockerfile: Dockerfile
+    container_name: web3_manager
+    restart: unless-stopped
+    ports:
+      - "${MANAGER_PORT:-5343}:80"
+    networks:
+      - web3_network
+    depends_on:
+      web3_service:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost:80"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 20s
+
+networks:
+  web3_network:
+    driver: bridge
