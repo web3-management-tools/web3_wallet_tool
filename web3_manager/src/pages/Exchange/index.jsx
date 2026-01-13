@@ -45,6 +45,69 @@ const CHAINS = [
   { value: '', label: '其他' }
 ];
 
+// 交易所到网络的映射（根据各交易所官方文档的提现网络名称）
+const EXCHANGE_CHAINS = {
+  binance: [
+    { value: 'ETH', label: 'ETH' },
+    { value: 'TRC20', label: 'TRC20' },
+    { value: 'BSC', label: 'BSC' },
+    { value: 'MATIC', label: 'MATIC' },
+    { value: 'ARBITRUM', label: 'ARBITRUM' },
+    { value: 'OPTIMISM', label: 'OPTIMISM' },
+    { value: 'AVAXC', label: 'AVAXC' },
+    { value: 'SOL', label: 'SOL' },
+    { value: 'BTC', label: 'BTC' }
+  ],
+  okx: [
+    { value: 'ERC20', label: 'ERC20' },
+    { value: 'TRC20', label: 'TRC20' },
+    { value: 'BSC', label: 'BSC' },
+    { value: 'Polygon', label: 'Polygon' },
+    { value: 'Arbitrum One', label: 'Arbitrum One' },
+    { value: 'Optimism', label: 'Optimism' },
+    { value: 'Avalanche C-Chain', label: 'Avalanche C-Chain' },
+    { value: 'Solana', label: 'Solana' },
+    { value: 'Bitcoin', label: 'Bitcoin' },
+    { value: 'Ethereum', label: 'Ethereum' }
+  ],
+  bybit: [
+    { value: 'ERC20', label: 'ERC20' },
+    { value: 'TRC20', label: 'TRC20' },
+    { value: 'BSC', label: 'BSC' },
+    { value: 'Polygon', label: 'Polygon' },
+    { value: 'Arbitrum', label: 'Arbitrum' },
+    { value: 'Optimism', label: 'Optimism' },
+    { value: 'Avalanche', label: 'Avalanche' },
+    { value: 'Solana', label: 'Solana' },
+    { value: 'BTC', label: 'BTC' },
+    { value: 'ETH', label: 'ETH' }
+  ],
+  bitget: [
+    { value: 'ERC20', label: 'ERC20' },
+    { value: 'TRC20', label: 'TRC20' },
+    { value: 'BSC', label: 'BSC' },
+    { value: 'Polygon', label: 'Polygon' },
+    { value: 'Arbitrum', label: 'Arbitrum' },
+    { value: 'Optimism', label: 'Optimism' },
+    { value: 'Avalanche', label: 'Avalanche' },
+    { value: 'Solana', label: 'Solana' },
+    { value: 'BTC', label: 'BTC' },
+    { value: 'ETH', label: 'ETH' }
+  ],
+  gate: [
+    { value: 'ERC20', label: 'ERC20' },
+    { value: 'TRC20', label: 'TRC20' },
+    { value: 'BSC', label: 'BSC' },
+    { value: 'Polygon', label: 'Polygon' },
+    { value: 'Arbitrum', label: 'Arbitrum' },
+    { value: 'Optimism', label: 'Optimism' },
+    { value: 'Avalanche', label: 'Avalanche' },
+    { value: 'Solana', label: 'Solana' },
+    { value: 'BTC', label: 'BTC' },
+    { value: 'ETH', label: 'ETH' }
+  ]
+};
+
 const TOKENS = [
   { value: 'USDT', label: 'USDT' },
   { value: 'USDC', label: 'USDC' },
@@ -126,6 +189,7 @@ export default function Exchange() {
   // 任务列表
   const [withdrawTasks, setWithdrawTasks] = useState([]);
   const [withdrawLogs, setWithdrawLogs] = useState([]);
+  const [availableChains, setAvailableChains] = useState([]);
 
   useEffect(() => {
     loadExchangeNames();
@@ -192,8 +256,6 @@ export default function Exchange() {
       } finally {
         setLoading(false);
       }
-    } else if (project) {
-      setMessage({ type: 'info', text: '请先验证交易所 API' });
     }
   };
 
@@ -326,9 +388,10 @@ export default function Exchange() {
           const decryptedApikey = res.data.apikey ? await decryptPwd(res.data.apikey) : '';
           const decryptedSecret = res.data.secret ? await decryptPwd(res.data.secret) : '';
           const decryptedPassword = res.data.password ? await decryptPwd(res.data.password) : '';
+          const platform = res.data.platform || 'unknown';
 
           setVerifiedApiInfo({
-            platform: res.data.platform || 'unknown',
+            platform: platform,
             apikey: decryptedApikey,
             secret: decryptedSecret,
             password: decryptedPassword,
@@ -336,6 +399,12 @@ export default function Exchange() {
           });
           setIsApiVerified(true);
           setMessage({ type: 'success', text: 'API 验证成功' });
+
+          // 根据platform更新网络选项
+          console.log('API验证成功，平台:', platform);
+          const chains = EXCHANGE_CHAINS[platform.toLowerCase()] || CHAINS;
+          console.log('可用网络:', chains);
+          setAvailableChains(chains);
 
           // 验证成功后，如果已选择项目，则加载地址
           if (selectedProject) {
@@ -387,14 +456,36 @@ export default function Exchange() {
     return value.substring(0, 2) + '****' + value.substring(len - 2);
   };
 
-  const handleExchangeChange = (e) => {
+  const handleExchangeChange = async (e) => {
     const value = e.target.value;
-    setWithdrawConfig(prev => ({ ...prev, exchange: value }));
+    setWithdrawConfig(prev => ({ ...prev, exchange: value, chain: '' }));
     setIsApiVerified(false);
     setVerifiedApiInfo(null);
     setWithdrawTasks([]);
     setWithdrawLogs([]);
     setMessage(null);
+
+    // 根据选择的交易所更新网络选项
+    if (value && decryptPwdInput) {
+      try {
+        // 获取交易所信息以获取platform字段
+        const res = await getExchangeOne(value, decryptPwdInput);
+        if (res.success && res.data && res.data.platform) {
+          const platform = res.data.platform.toLowerCase();
+          console.log('选择的交易所:', value, '平台:', platform);
+          const chains = EXCHANGE_CHAINS[platform] || CHAINS;
+          console.log('可用网络:', chains);
+          setAvailableChains(chains);
+        } else {
+          setAvailableChains(CHAINS);
+        }
+      } catch (error) {
+        console.error('获取交易所信息失败:', error);
+        setAvailableChains(CHAINS);
+      }
+    } else {
+      setAvailableChains([]);
+    }
   };
 
   // 生成任务列表
@@ -949,11 +1040,16 @@ export default function Exchange() {
                   value={withdrawConfig.chain || ''}
                   onChange={(e) => setWithdrawConfig({ ...withdrawConfig, chain: e.target.value })}
                   placeholder="选择或输入网络"
+                  disabled={!withdrawConfig.exchange}
                 />
                 <datalist id="chain-options">
-                  {CHAINS.map(c => (
-                    <option key={c.value} value={c.value}>{c.label}</option>
-                  ))}
+                  {availableChains.length > 0 ? (
+                    availableChains.map(c => (
+                      <option key={c.value} value={c.value}>{c.label}</option>
+                    ))
+                  ) : (
+                    <option value="">请先选择交易所</option>
+                  )}
                 </datalist>
               </div>
 
