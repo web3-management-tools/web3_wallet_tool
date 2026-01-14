@@ -138,8 +138,8 @@ const generateRandomPassword = () => {
   return result;
 };
 
-export default function Exchange() {
-  const [activeTab, setActiveTab] = useState('list');
+export default function Exchange({ initialTab = 'list' }) {
+  const [activeTab, setActiveTab] = useState(initialTab);
   const [password, setPassword] = useState('');
   const [exchanges, setExchanges] = useState([]);
   const [projects, setProjects] = useState([]);
@@ -196,6 +196,11 @@ export default function Exchange() {
     loadProjects();
   }, []);
 
+  // 监听 initialTab 变化，更新 activeTab
+  useEffect(() => {
+    setActiveTab(initialTab);
+  }, [initialTab]);
+
   // 消息自动消失
   useEffect(() => {
     if (message) {
@@ -208,16 +213,7 @@ export default function Exchange() {
     setLoading(true);
     try {
       const res = await getExchangeNames();
-      console.log('交易所列表响应:', res);
-      console.log('响应成功:', res.success);
-      console.log('响应数据类型:', typeof res.data);
-      console.log('响应数据:', res.data);
       if (res.success) {
-        console.log('交易所数据:', res.data);
-        console.log('第一个交易所:', res.data?.[0]);
-        if (res.data && res.data.length > 0) {
-            console.log('第一个交易所的platform:', res.data[0].platform);
-        }
         setExchanges(res.data || []);
       } else {
         handleApiError(res, setMessage);
@@ -317,7 +313,6 @@ export default function Exchange() {
     setLoading(true);
     try {
       const res = await getExchangeOne(name, password);
-      console.log('getExchangeOne res:', res);
       if (res.success && res.data) {
         setFormData({
           platform: res.data.platform || 'binance',
@@ -330,7 +325,6 @@ export default function Exchange() {
         setIsEditing(true);
         setActiveTab('form');
       } else {
-        console.log('res.success:', res.success, 'res.data:', res.data);
         handleApiError(res, setMessage);
       }
     } catch (error) {
@@ -430,9 +424,7 @@ export default function Exchange() {
           setMessage({ type: 'success', text: 'API 验证成功' });
 
           // 根据platform更新网络选项
-          console.log('API验证成功，平台:', platform);
           const chains = EXCHANGE_CHAINS[platform.toLowerCase()] || CHAINS;
-          console.log('可用网络:', chains);
           setAvailableChains(chains);
 
           // 验证成功后，如果已选择项目，则加载地址
@@ -501,9 +493,7 @@ export default function Exchange() {
         const res = await getExchangeOne(value, decryptPwdInput);
         if (res.success && res.data && res.data.platform) {
           const platform = res.data.platform.toLowerCase();
-          console.log('选择的交易所:', value, '平台:', platform);
           const chains = EXCHANGE_CHAINS[platform] || CHAINS;
-          console.log('可用网络:', chains);
           setAvailableChains(chains);
         } else {
           setAvailableChains(CHAINS);
@@ -754,7 +744,6 @@ export default function Exchange() {
             </div>
           ) : exchanges.length > 0 ? (
             <div className="exchange-grid">
-              {console.log('渲染交易所列表:', exchanges)}
               {exchanges.map((exchange, index) => (
                 <div key={exchange.name || index} className="exchange-card">
                   <div className="exchange-card-header">

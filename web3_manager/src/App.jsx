@@ -16,7 +16,8 @@ import {
   ArrowRightLeft,
   FolderKanban,
   Building2,
-  Share2
+  Share2,
+  ArrowUpRight
 } from 'lucide-react';
 import WalletList from './pages/WalletList';
 import CreateWallet from './pages/CreateWallet';
@@ -122,6 +123,7 @@ function App() {
       icon: <Building2 size={20} />,
       children: [
         { id: 'exchange', label: '交易所API管理', icon: <Building2 size={18} /> },
+        { id: 'exchange-withdraw', label: '交易所提现', icon: <ArrowUpRight size={18} /> },
       ]
     }
   ];
@@ -136,6 +138,7 @@ function App() {
       case 'transfer': return <Transfer />;
       case 'distribution': return <Distribution />;
       case 'exchange': return <Exchange />;
+      case 'exchange-withdraw': return <Exchange initialTab="withdraw" />;
       default: return <WalletList />;
     }
   };
