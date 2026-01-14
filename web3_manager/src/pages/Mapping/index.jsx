@@ -12,10 +12,11 @@ import {
   FileSpreadsheet,
   CheckSquare,
   Square,
-  ListFilter
+  ListFilter,
+  FolderKanban
 } from 'lucide-react';
 import * as XLSX from 'xlsx';
-import { batchImportMapping, batchQueryMapping } from '../../api/wallet';
+import { batchImportMapping, batchQueryMapping, getWalletProjects, walletList } from '../../api/wallet';
 import { handleApiError } from '../../api/errorHandler';
 import './index.css';
 
@@ -24,10 +25,30 @@ export default function Mapping() {
   const [project, setProject] = useState('');
   const [remark, setRemark] = useState('');
   const [queryAddresses, setQueryAddresses] = useState('');
-  const [queryResults, setQueryResults] = useState([]); 
+  const [queryResults, setQueryResults] = useState([]);
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState(null);
   const [activeTab, setActiveTab] = useState('import');
+
+  // 项目查询相关状态
+  const [projects, setProjects] = useState([]);
+  const [selectedProject, setSelectedProject] = useState('');
+  const [queryMode, setQueryMode] = useState('manual'); // 'manual' | 'project'
+
+  useEffect(() => {
+    loadProjects();
+  }, []);
+
+  const loadProjects = async () => {
+    try {
+      const res = await getWalletProjects();
+      if (res.success) {
+        setProjects(res.data || []);
+      }
+    } catch (error) {
+      console.error('获取项目列表失败:', error);
+    }
+  };
 
   useEffect(() => {
     if (message) {
@@ -92,36 +113,79 @@ export default function Mapping() {
 
   const handleQuery = async () => {
     try {
-      if (!queryAddresses.trim()) {
-        setMessage({ type: 'error', text: '请输入查询地址' });
-        return;
-      }
-      const inputAddrs = queryAddresses.split('\n')
-        .map(a => a.trim())
-        .filter(a => a.length > 0);
+      if (queryMode === 'manual') {
+        if (!queryAddresses.trim()) {
+          setMessage({ type: 'error', text: '请输入查询地址' });
+          return;
+        }
+        const inputAddrs = queryAddresses.split('\n')
+          .map(a => a.trim())
+          .filter(a => a.length > 0);
 
-      if (inputAddrs.length === 0) return;
+        if (inputAddrs.length === 0) return;
 
-      setLoading(true);
-      const res = await batchQueryMapping(inputAddrs);
-      
-      if (res.success) {
-        const foundMap = Object.fromEntries((res.data || []).map(m => [m.sourceAddress.toLowerCase(), m]));
-        const alignedResults = inputAddrs.map(addr => {
-          const match = foundMap[addr.toLowerCase()];
-          return {
-            source: addr,
-            target: match ? match.targetAddress : '',
-            project: match ? match.project : '',
-            remark: match ? match.remark : '',
-            found: !!match,
-            selected: true
-          };
-        });
-        setQueryResults(alignedResults);
-        setMessage({ type: 'success', text: `查询完成，匹配 ${res.data?.length || 0}/${inputAddrs.length}` });
+        setLoading(true);
+        const res = await batchQueryMapping(inputAddrs);
+
+        if (res.success) {
+          const foundMap = Object.fromEntries((res.data || []).map(m => [m.sourceAddress.toLowerCase(), m]));
+          const alignedResults = inputAddrs.map(addr => {
+            const match = foundMap[addr.toLowerCase()];
+            return {
+              source: addr,
+              target: match ? match.targetAddress : '',
+              project: match ? match.project : '',
+              remark: match ? match.remark : '',
+              found: !!match,
+              selected: true
+            };
+          });
+          setQueryResults(alignedResults);
+          setMessage({ type: 'success', text: `查询完成，匹配 ${res.data?.length || 0}/${inputAddrs.length}` });
+        } else {
+          handleApiError(res, setMessage);
+        }
       } else {
-        handleApiError(res, setMessage);
+        // 通过项目查询
+        if (!selectedProject) {
+          setMessage({ type: 'error', text: '请选择项目' });
+          return;
+        }
+
+        setLoading(true);
+        const res = await walletList({ project: selectedProject, pwd: '1' });
+
+        if (res.success && res.data) {
+          const addresses = res.data.map(w => w.address);
+          if (addresses.length === 0) {
+            setMessage({ type: 'error', text: '该项目下没有钱包地址' });
+            setLoading(false);
+            return;
+          }
+
+          const mappingRes = await batchQueryMapping(addresses);
+
+          if (mappingRes.success) {
+            const foundMap = Object.fromEntries((mappingRes.data || []).map(m => [m.sourceAddress.toLowerCase(), m]));
+            const alignedResults = addresses.map(addr => {
+              const match = foundMap[addr.toLowerCase()];
+              return {
+                source: addr,
+                target: match ? match.targetAddress : '',
+                project: match ? match.project : '',
+                remark: match ? match.remark : '',
+                found: !!match,
+                selected: true
+              };
+            });
+            setQueryResults(alignedResults);
+            setMessage({ type: 'success', text: `查询完成，匹配 ${mappingRes.data?.length || 0}/${addresses.length}` });
+          } else {
+            handleApiError(mappingRes, setMessage);
+          }
+        } else {
+          handleApiError(res, setMessage);
+        }
       }
     } catch (error) {
       setMessage({ type: 'error', text: '查询出错' });
@@ -238,14 +302,46 @@ export default function Mapping() {
               <div className="card-tag">QUERY</div>
               <h3><Search size={18} /> 批量查询目标</h3>
               <div className="form-body">
+                <div className="query-mode-switcher">
+                  <button
+                    className={queryMode === 'manual' ? 'active' : ''}
+                    onClick={() => setQueryMode('manual')}
+                  >
+                    <FileText size={16} /> 手动输入地址
+                  </button>
+                  <button
+                    className={queryMode === 'project' ? 'active' : ''}
+                    onClick={() => setQueryMode('project')}
+                  >
+                    <FolderKanban size={16} /> 从项目获取
+                  </button>
+                </div>
+
                 <div className="input-layout-row">
-                  <textarea
-                    className="flex-1"
-                    value={queryAddresses}
-                    onChange={(e) => setQueryAddresses(e.target.value)}
-                    placeholder="每行输入一个源地址进行查询..."
-                    rows={8}
-                  />
+                  {queryMode === 'manual' ? (
+                    <textarea
+                      className="flex-1"
+                      value={queryAddresses}
+                      onChange={(e) => setQueryAddresses(e.target.value)}
+                      placeholder="每行输入一个源地址进行查询..."
+                      rows={8}
+                    />
+                  ) : (
+                    <div className="project-query-layout">
+                      <div className="input-field">
+                        <label>选择项目</label>
+                        <select
+                          value={selectedProject}
+                          onChange={(e) => setSelectedProject(e.target.value)}
+                        >
+                          <option value="">请选择项目</option>
+                          {projects.map(p => (
+                            <option key={p} value={p}>{p}</option>
+                          ))}
+                        </select>
+                      </div>
+                    </div>
+                  )}
                   <div className="params-wrap narrow">
                     <button className="execute-btn" onClick={handleQuery} disabled={loading}>
                       {loading ? <RefreshCw className="spin" size={18} /> : <Search size={18} />} 执行查询
@@ -293,9 +389,9 @@ export default function Mapping() {
                                   {item.found ? <CheckCircle2 size={18} /> : <XCircle size={18} />}
                                 </div>
                               </td>
-                              <td className="mono">{formatAddress(item.source)}</td>
+                              <td className="mono">{item.source}</td>
                               <td>{item.found && <ArrowRightLeft size={12} />}</td>
-                              <td className="mono primary-text">{item.found ? formatAddress(item.target) : '--'}</td>
+                              <td className="mono primary-text">{item.found ? item.target : '--'}</td>
                               <td className="muted-text">{item.remark || '-'}</td>
                             </tr>
                           ))}
