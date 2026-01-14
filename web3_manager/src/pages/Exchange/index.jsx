@@ -124,7 +124,6 @@ const PLATFORMS = [
   { value: 'okx', label: 'OKX' },
   { value: 'bitget', label: 'Bitget' },
   { value: 'bybit', label: 'Bybit' },
-  { value: 'kucoin', label: 'KuCoin' },
   { value: 'gate', label: 'Gate.io' },
 ];
 
