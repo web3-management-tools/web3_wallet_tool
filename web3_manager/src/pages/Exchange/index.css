@@ -564,12 +564,51 @@
   margin-bottom: 12px;
   padding-bottom: 12px;
   border-bottom: 1px solid var(--border-color);
+  align-items: end;
+}
+
+/* Exchange Autocomplete */
+.exchange-autocomplete-container {
+  position: relative;
+}
+
+.exchange-autocomplete-container .autocomplete-dropdown {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  right: 0;
+  background: white;
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-sm);
+  box-shadow: var(--shadow-lg);
+  max-height: 200px;
+  overflow-y: auto;
+  z-index: 100;
+  margin-top: 4px;
+}
+
+.exchange-autocomplete-container .autocomplete-item {
+  padding: 10px 12px;
+  cursor: pointer;
+  font-size: 0.875rem;
+  color: var(--text-main);
+  transition: var(--transition);
+}
+
+.exchange-autocomplete-container .autocomplete-item:hover {
+  background: var(--bg-main);
+  color: var(--primary-color);
 }
 
 .verify-password-group {
   display: flex;
   flex-direction: column;
   gap: 4px;
+}
+
+.verify-password-group .password-input-wrapper {
+  height: 38px;
+  box-sizing: border-box;
 }
 
 .verify-btn-group {
@@ -656,7 +695,7 @@
 .verify-btn {
   width: auto;
   min-width: 100px;
-  height: 36px;
+  height: 38px;
   background: var(--primary-color);
   color: white;
   border: none;
@@ -669,6 +708,7 @@
   justify-content: center;
   gap: 4px;
   transition: var(--transition);
+  box-sizing: border-box;
 }
 
 .verify-btn:hover:not(:disabled) {

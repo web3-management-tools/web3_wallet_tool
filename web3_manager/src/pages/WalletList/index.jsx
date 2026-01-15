@@ -26,14 +26,12 @@ export default function WalletList({ initialProject }) {
   const [projects, setProjects] = useState([]);
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState(null);
+  const [showProjectDropdown, setShowProjectDropdown] = useState(false);
+  const [projectInputValue, setProjectInputValue] = useState('');
 
   useEffect(() => {
     loadProjects();
-    // 如果有初始项目，设置项目值
-    if (initialProject) {
-      setProject(initialProject);
-    }
-  }, [initialProject]);
+  }, []);
 
   const loadProjects = async () => {
     const res = await getWalletProjects();
@@ -148,6 +146,55 @@ export default function WalletList({ initialProject }) {
     });
   };
 
+  const handleProjectInputChange = (e) => {
+    const value = e.target.value;
+    setProjectInputValue(value);
+    setProject(value);
+    setShowProjectDropdown(true);
+  };
+
+  const handleProjectSelect = (selectedProject) => {
+    setProject(selectedProject);
+    setProjectInputValue(selectedProject);
+    setShowProjectDropdown(false);
+  };
+
+  const getFilteredProjects = () => {
+    if (!projectInputValue) return projects;
+    return projects.filter(p => 
+      p.toLowerCase().includes(projectInputValue.toLowerCase())
+    );
+  };
+
+  const getUniqueProjects = () => {
+    const seen = new Set();
+    return getFilteredProjects().filter(p => {
+      if (seen.has(p)) return false;
+      seen.add(p);
+      return true;
+    });
+  };
+
+  const handleClickOutside = (e) => {
+    if (!e.target.closest('.project-autocomplete-container')) {
+      setShowProjectDropdown(false);
+    }
+  };
+
+  useEffect(() => {
+    document.addEventListener('click', handleClickOutside);
+    return () => {
+      document.removeEventListener('click', handleClickOutside);
+    };
+  }, []);
+
+  useEffect(() => {
+    if (initialProject) {
+      setProject(initialProject);
+      setProjectInputValue(initialProject);
+    }
+  }, [initialProject]);
+
   return (
     <div className="wallet-page">
       <div className="page-header">
@@ -174,14 +221,28 @@ export default function WalletList({ initialProject }) {
                 placeholder="用于解密私钥"
               />
             </div>
-            <div className="input-group">
+            <div className="input-group project-autocomplete-container">
               <label>项目筛选</label>
-              <select value={project} onChange={(e) => setProject(e.target.value)}>
-                <option value="">全部项目</option>
-                {projects.map((p) => (
-                  <option key={p} value={p}>{p}</option>
-                ))}
-              </select>
+              <input
+                type="text"
+                value={projectInputValue}
+                onChange={handleProjectInputChange}
+                onFocus={() => setShowProjectDropdown(true)}
+                placeholder="输入或选择项目"
+              />
+              {showProjectDropdown && getFilteredProjects().length > 0 && (
+                <div className="autocomplete-dropdown">
+                  {getUniqueProjects().map((p, index) => (
+                    <div
+                      key={`${p}-${index}`}
+                      className="autocomplete-item"
+                      onClick={() => handleProjectSelect(p)}
+                    >
+                      {p}
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
             <div className="input-group flex-2">
               <label>地址搜索</label>

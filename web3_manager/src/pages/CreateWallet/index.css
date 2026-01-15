@@ -59,6 +59,10 @@
   font-size: 0.8125rem;
   font-weight: 700;
   color: var(--text-secondary);
+  height: 20px;
+  line-height: 20px;
+  display: flex;
+  align-items: center;
 }
 
 .input-group input, .input-group select {
@@ -80,19 +84,22 @@
 .type-toggle {
   display: flex;
   background: var(--bg-main);
-  padding: 4px;
   border-radius: var(--radius-md);
+  height: 38px;
+  box-sizing: border-box;
+  border: 1px solid var(--border-color);
 }
 
 .type-toggle button {
   flex: 1;
-  height: 34px;
+  height: 100%;
   border: none;
   background: transparent;
   font-weight: 600;
   cursor: pointer;
   border-radius: var(--radius-sm);
   transition: var(--transition);
+  box-sizing: border-box;
 }
 
 .type-toggle button.active {

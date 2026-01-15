@@ -205,11 +205,11 @@ export default function ImportWallet() {
             <h3><Shield size={18} /> 安全设置</h3>
             <div className="setup-grid-vertical">
               <div className="input-group">
-                <label>钱包支付密码</label>
+                <label>加密密码</label>
                 <PasswordInput value={password} onChange={setPassword} placeholder="用于加密私钥" />
               </div>
               <div className="input-group">
-                <label>确认支付密码</label>
+                <label>确认加密密码</label>
                 <PasswordInput value={confirmPassword} onChange={setConfirmPassword} placeholder="再次确认" />
               </div>
               <button className="execute-btn" onClick={handleImport} disabled={loading}>

@@ -145,6 +145,10 @@ export default function Exchange({ initialTab = 'list' }) {
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState(null);
 
+  // 交易所输入联想状态
+  const [showExchangeDropdown, setShowExchangeDropdown] = useState(false);
+  const [exchangeInputValue, setExchangeInputValue] = useState('');
+
   // 表单状态
   const [formData, setFormData] = useState({
     platform: 'binance',
@@ -505,6 +509,67 @@ export default function Exchange({ initialTab = 'list' }) {
       setAvailableChains([]);
     }
   };
+
+  // 交易所输入联想处理
+  const handleExchangeInputChange = (e) => {
+    const value = e.target.value;
+    setExchangeInputValue(value);
+    setWithdrawConfig(prev => ({ ...prev, exchange: value, chain: '' }));
+    setIsApiVerified(false);
+    setVerifiedApiInfo(null);
+    setWithdrawTasks([]);
+    setWithdrawLogs([]);
+    setShowExchangeDropdown(true);
+  };
+
+  const handleExchangeSelect = async (selectedExchange) => {
+    setWithdrawConfig(prev => ({ ...prev, exchange: selectedExchange, chain: '' }));
+    setExchangeInputValue(selectedExchange);
+    setShowExchangeDropdown(false);
+    setIsApiVerified(false);
+    setVerifiedApiInfo(null);
+    setWithdrawTasks([]);
+    setWithdrawLogs([]);
+
+    // 根据选择的交易所更新网络选项
+    if (selectedExchange && decryptPwdInput) {
+      try {
+        const res = await getExchangeOne(selectedExchange, decryptPwdInput);
+        if (res.success && res.data && res.data.platform) {
+          const platform = res.data.platform.toLowerCase();
+          const chains = EXCHANGE_CHAINS[platform] || CHAINS;
+          setAvailableChains(chains);
+        } else {
+          setAvailableChains(CHAINS);
+        }
+      } catch (error) {
+        console.error('获取交易所信息失败:', error);
+        setAvailableChains(CHAINS);
+      }
+    } else {
+      setAvailableChains([]);
+    }
+  };
+
+  const getFilteredExchanges = () => {
+    if (!exchangeInputValue) return exchanges;
+    return exchanges.filter(ex =>
+      ex.name.toLowerCase().includes(exchangeInputValue.toLowerCase())
+    );
+  };
+
+  const handleClickOutsideExchange = (e) => {
+    if (!e.target.closest('.exchange-autocomplete-container')) {
+      setShowExchangeDropdown(false);
+    }
+  };
+
+  useEffect(() => {
+    document.addEventListener('click', handleClickOutsideExchange);
+    return () => {
+      document.removeEventListener('click', handleClickOutsideExchange);
+    };
+  }, []);
 
   // 生成任务列表
   const generateTasks = () => {
@@ -965,27 +1030,37 @@ export default function Exchange({ initialTab = 'list' }) {
 
             {/* 交易所选择区域 */}
             <div className="exchange-verify-section">
-              <div className="input-group">
+              <div className="input-group exchange-autocomplete-container">
                 <label><Target size={14} /> 交易所</label>
-                <select
-                  value={withdrawConfig.exchange}
-                  onChange={handleExchangeChange}
-                >
-                  <option value="">选择交易所</option>
-                  {exchanges.map(exchange => (
-                    <option key={exchange.name} value={exchange.name}>{exchange.name}</option>
-                  ))}
-                </select>
+                <input
+                  type="text"
+                  value={exchangeInputValue}
+                  onChange={handleExchangeInputChange}
+                  onFocus={() => setShowExchangeDropdown(true)}
+                  placeholder="输入或选择交易所"
+                />
+                {showExchangeDropdown && getFilteredExchanges().length > 0 && (
+                  <div className="autocomplete-dropdown">
+                    {getFilteredExchanges().map((exchange, index) => (
+                      <div
+                        key={`${exchange.name}-${index}`}
+                        className="autocomplete-item"
+                        onClick={() => handleExchangeSelect(exchange.name)}
+                      >
+                        {exchange.name}
+                      </div>
+                    ))}
+                  </div>
+                )}
               </div>
               <div className="input-group verify-password-group">
                 <label><Key size={14} /> API解密密码</label>
-                <div className="password-input-wrapper" style={{ height: '38px' }}>
+                <div className="password-input-wrapper">
                   <input
                     type={showPassword.decrypt ? 'text' : 'password'}
                     value={decryptPwdInput}
                     onChange={(e) => setDecryptPwdInput(e.target.value)}
                     placeholder="输入API解密密码"
-                    style={{ width: '100%', height: '100%', paddingRight: '40px' }}
                   />
                   <button
                     type="button"

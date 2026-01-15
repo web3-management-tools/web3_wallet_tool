@@ -144,11 +144,11 @@ export default function CreateWallet() {
           <h3><Shield size={18} /> 安全加密设置</h3>
           <div className="setup-grid">
             <div className="input-group">
-              <label>钱包支付密码</label>
+              <label>加密密码</label>
               <PasswordInput value={password} onChange={setPassword} placeholder="用于加密私钥" />
             </div>
             <div className="input-group">
-              <label>确认支付密码</label>
+              <label>确认加密密码</label>
               <PasswordInput value={confirmPassword} onChange={setConfirmPassword} placeholder="再次确认" />
             </div>
             <button className="execute-btn full-row" onClick={handleCreate} disabled={loading}>
@@ -168,7 +168,7 @@ export default function CreateWallet() {
           </div>
           <div className="info-item">
             <strong>密码唯一性</strong>
-            <p>请务必牢记支付密码，一旦丢失将无法解密私钥，资产将永久锁定。</p>
+            <p>请务必牢记加密密码，一旦丢失将无法解密私钥，资产将永久锁定。</p>
           </div>
         </div>
       </div>
