@@ -366,6 +366,15 @@ export default function BalanceCheck() {
   const failedCount = tasks.filter(t => t.status === 'error').length;
   const selectedCount = tasks.filter(t => t.selected).length;
 
+  // 计算总余额
+  const totalNativeBalance = tasks
+    .filter(t => t.status === 'success' && t.nativeBalance !== null)
+    .reduce((sum, t) => sum + parseFloat(t.nativeBalance), 0);
+
+  const totalTokenBalance = tasks
+    .filter(t => t.status === 'success' && t.tokenBalance !== null)
+    .reduce((sum, t) => sum + parseFloat(t.tokenBalance), 0);
+
   return (
     <div className="balance-check-page">
       <div className="balance-header">
@@ -530,12 +539,31 @@ export default function BalanceCheck() {
               </button>
             </div>
             <div className="mode-params">
-              {tasks.length > 0 && (
-                <div className="progress-info">
-                  <strong>{successfulCount}</strong> 成功 / <strong>{failedCount}</strong> 失败 / 共 <strong>{tasks.length}</strong> 个
-                  {selectedCount !== tasks.length && ` (选中 ${selectedCount})`}
-                </div>
-              )}
+              <div className="params-left">
+                {tasks.length > 0 && (
+                  <div className="progress-info">
+                    <strong>{successfulCount}</strong> 成功 / <strong>{failedCount}</strong> 失败 / 共 <strong>{tasks.length}</strong> 个
+                    {selectedCount !== tasks.length && ` (选中 ${selectedCount})`}
+                  </div>
+                )}
+                {successfulCount > 0 && (
+                  <div className="total-balance-info">
+                    <span className="total-native">
+                      平台币合计: <strong>{totalNativeBalance.toFixed(6)}</strong>
+                    </span>
+                    {tokenType === 'erc20' && totalTokenBalance > 0 && (
+                      <span className="total-token">
+                        {tokenSymbol || '代币'} 合计: <strong>{totalTokenBalance.toFixed(6)}</strong>
+                      </span>
+                    )}
+                    {tokenType === 'erc20' && totalTokenBalance === 0 && (
+                      <span className="total-token">
+                        {tokenSymbol || '代币'} 合计: <strong>0.000000</strong>
+                      </span>
+                    )}
+                  </div>
+                )}
+              </div>
               <div className="task-actions">
                 <button
                   className="retry-btn"

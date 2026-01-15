@@ -295,9 +295,9 @@
 
 .execution-modes {
   display: flex;
-  flex-wrap: wrap;
   gap: 16px;
   align-items: center;
+  width: 100%;
 }
 
 .mode-tabs {
@@ -306,6 +306,7 @@
   background: var(--bg-main);
   padding: 4px;
   border-radius: var(--radius-md);
+  flex-shrink: 0;
 }
 
 .mode-tabs button {
@@ -333,10 +334,19 @@
 
 .mode-params {
   display: flex;
+  gap: 12px;
+  align-items: center;
+  flex: 1;
+  min-width: 0;
+}
+
+.params-left {
+  display: flex;
   flex-wrap: wrap;
   gap: 12px;
   align-items: center;
   flex: 1;
+  min-width: 0;
 }
 
 .range-box {
@@ -362,6 +372,7 @@
 .task-actions {
   display: flex;
   gap: 8px;
+  flex-shrink: 0;
   margin-left: auto;
 }
 
@@ -622,6 +633,26 @@
 
 .progress-info strong {
   color: var(--primary-color);
+}
+
+.total-balance-info {
+  background: linear-gradient(135deg, #e0f2fe 0%, #dbeafe 100%);
+  padding: 8px 12px;
+  border-radius: var(--radius-sm);
+  font-size: 13px;
+  color: var(--text-main);
+  display: flex;
+  gap: 20px;
+  border: 1px solid #93c5fd;
+}
+
+.total-balance-info strong {
+  color: var(--primary-color);
+  font-family: 'SF Mono', Monaco, monospace;
+}
+
+.total-token {
+  color: var(--token-color, #7c3aed);
 }
 
 @media (max-width: 768px) {
