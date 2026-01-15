@@ -140,7 +140,7 @@ MYSQL_DATABASE=lumao
 FLASK_HOST=0.0.0.0
 FLASK_PORT=3000
 
-# 加密密码（用于加密私钥和助记词）
+# http传输过程中的加密密钥，用于加解密传输过程中的私钥和助记词和密码
 PWD_DECRYPT_KEY=jf324!@423fdQW
 
 # 日志级别
@@ -150,7 +150,7 @@ LOG_LEVEL=INFO
 **重要配置说明：**
 
 - `MYSQL_PASSWORD`: 请修改为你的 MySQL 实际密码
-- `PWD_DECRYPT_KEY`: 加密密钥，用于加解密私钥和助记词，**请妥善保管**，丢失将无法恢复私钥
+- `PWD_DECRYPT_KEY`: http传输过程中的加密密钥，用于加解密传输过程中的私钥和助记词和密码
 - `FLASK_PORT`: 后端服务端口，默认 3000，可根据需要修改
 
 ### 前端环境变量 (web3_manager/.env.development)
