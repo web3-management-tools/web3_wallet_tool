@@ -28,6 +28,7 @@ export default function WalletList({ initialProject }) {
   const [message, setMessage] = useState(null);
   const [showProjectDropdown, setShowProjectDropdown] = useState(false);
   const [projectInputValue, setProjectInputValue] = useState('');
+  const [safeCopyMode, setSafeCopyMode] = useState(true); // 安全复制模式，默认开启
 
   useEffect(() => {
     loadProjects();
@@ -137,9 +138,21 @@ export default function WalletList({ initialProject }) {
 
   const copyToClipboard = (text, type = '内容') => {
     if (!text) return;
-    navigator.clipboard.writeText(text).then(() => {
+
+    // 安全复制模式：私钥和助记词去除后四位
+    let textToCopy = text;
+    if (safeCopyMode && (type === '私钥' || type === '助记词')) {
+      if (text.length > 4) {
+        textToCopy = text.slice(0, -4);
+      }
+    }
+
+    navigator.clipboard.writeText(textToCopy).then(() => {
       const originalMsg = message;
-      setMessage({ type: 'success', text: `已复制${type}到剪贴板` });
+      const msg = safeCopyMode && (type === '私钥' || type === '助记词')
+        ? `已复制${type}（已去除后四位）到剪贴板`
+        : `已复制${type}到剪贴板`;
+      setMessage({ type: 'success', text: msg });
       setTimeout(() => setMessage(originalMsg), 2000);
     }).catch(() => {
       setMessage({ type: 'error', text: '复制失败' });
@@ -202,11 +215,24 @@ export default function WalletList({ initialProject }) {
           <h1>钱包管理</h1>
           <p>批量查询、解密并导出您的 Web3 资产钱包</p>
         </div>
-        {wallets.length > 0 && (
-          <button className="export-excel-btn" onClick={handleExport}>
-            <FileSpreadsheet size={18} /> 导出 Excel
-          </button>
-        )}
+        <div className="header-actions">
+          <div className="safe-copy-toggle">
+            <label className="toggle-label">
+              <input
+                type="checkbox"
+                checked={safeCopyMode}
+                onChange={(e) => setSafeCopyMode(e.target.checked)}
+              />
+              <span className="toggle-slider"></span>
+              <span className="toggle-text">安全复制</span>
+            </label>
+          </div>
+          {wallets.length > 0 && (
+            <button className="export-excel-btn" onClick={handleExport}>
+              <FileSpreadsheet size={18} /> 导出 Excel
+            </button>
+          )}
+        </div>
       </div>
 
       <section className="search-section">
