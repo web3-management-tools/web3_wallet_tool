@@ -118,6 +118,7 @@
   display: flex;
   flex-direction: column;
   gap: 6px;
+  padding: 0;
 }
 
 .input-group.full-row {
@@ -140,6 +141,18 @@
   color: var(--text-main);
   font-size: 14px;
   transition: var(--transition);
+  box-sizing: border-box;
+}
+
+.input-group select {
+  height: 42px;
+  padding-right: 36px;
+  appearance: none;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%239ca3af' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 10px center;
+  cursor: pointer;
+  margin-bottom: 4px;
 }
 
 .input-group input:focus,
@@ -236,17 +249,27 @@
   border: 1px solid var(--border-color);
   border-radius: var(--radius-md);
   overflow: hidden;
+  align-items: center;
+  margin-bottom: 4px;
+  margin-left: 0;
+  margin-right: 0;
+  width: 100%;
 }
 
 .type-toggle button {
   flex: 1;
-  padding: 10px 12px;
+  padding: 10px 0;
   background: white;
   border: none;
   color: var(--text-secondary);
   font-size: 13px;
   cursor: pointer;
   transition: var(--transition);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 42px;
+  box-sizing: border-box;
 }
 
 .type-toggle button:hover {

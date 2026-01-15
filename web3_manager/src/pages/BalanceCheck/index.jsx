@@ -78,6 +78,10 @@ export default function BalanceCheck() {
       const net = COMMON_NETWORKS.find(n => n.chainId === parseInt(val));
       if (net) setNetwork(net);
     }
+    // 切换网络时清空代币信息
+    setTokenAddress('');
+    setTokenSymbol('');
+    setTokenDecimals(18);
   };
 
   const handleQueryTokenInfo = async () => {
@@ -163,8 +167,9 @@ export default function BalanceCheck() {
       const newTasks = uniqueWallets.map((w, i) => ({
         id: i,
         address: w.address,
-        project: w.project || 'Manual',
-        balance: null,
+        project: w.project || '-',
+        nativeBalance: null,
+        tokenBalance: null,
         status: 'pending',
         error: '',
         selected: true
@@ -193,18 +198,23 @@ export default function BalanceCheck() {
 
     const provider = new ethers.JsonRpcProvider(rpcUrl);
 
-    if (tokenType === 'native') {
-      const balance = await provider.getBalance(task.address);
-      return ethers.formatEther(balance);
-    } else {
+    // 查询原生币余额
+    const nativeBalance = await provider.getBalance(task.address);
+    const nativeBalanceFormatted = ethers.formatEther(nativeBalance);
+
+    // 如果是 ERC20 代币，同时查询代币余额
+    let tokenBalance = null;
+    if (tokenType === 'erc20') {
       if (!tokenAddress || !ethers.isAddress(tokenAddress)) {
         throw new Error('代币地址无效');
       }
       const abi = ["function balanceOf(address) view returns (uint256)"];
       const contract = new ethers.Contract(tokenAddress, abi, provider);
-      const balance = await contract.balanceOf(task.address);
-      return ethers.formatUnits(balance, tokenDecimals);
+      const tokenBal = await contract.balanceOf(task.address);
+      tokenBalance = ethers.formatUnits(tokenBal, tokenDecimals);
     }
+
+    return { nativeBalance: nativeBalanceFormatted, tokenBalance };
   };
 
   const handleStartQuery = async () => {
@@ -223,10 +233,11 @@ export default function BalanceCheck() {
       updateTask(task.id, { status: 'processing', error: '' });
 
       try {
-        const balance = await fetchBalance(task);
+        const result = await fetchBalance(task);
         updateTask(task.id, {
           status: 'success',
-          balance: parseFloat(balance).toFixed(6),
+          nativeBalance: parseFloat(result.nativeBalance).toFixed(6),
+          tokenBalance: result.tokenBalance ? parseFloat(result.tokenBalance).toFixed(6) : null,
           error: ''
         });
       } catch (e) {
@@ -262,10 +273,11 @@ export default function BalanceCheck() {
       updateTask(task.id, { status: 'processing', error: '' });
 
       try {
-        const balance = await fetchBalance(task);
+        const result = await fetchBalance(task);
         updateTask(task.id, {
           status: 'success',
-          balance: parseFloat(balance).toFixed(6),
+          nativeBalance: parseFloat(result.nativeBalance).toFixed(6),
+          tokenBalance: result.tokenBalance ? parseFloat(result.tokenBalance).toFixed(6) : null,
           error: ''
         });
       } catch (e) {
@@ -289,10 +301,11 @@ export default function BalanceCheck() {
     updateTask(taskId, { status: 'processing', error: '' });
 
     try {
-      const balance = await fetchBalance(task);
+      const result = await fetchBalance(task);
       updateTask(taskId, {
         status: 'success',
-        balance: parseFloat(balance).toFixed(6),
+        nativeBalance: parseFloat(result.nativeBalance).toFixed(6),
+        tokenBalance: result.tokenBalance ? parseFloat(result.tokenBalance).toFixed(6) : null,
         error: ''
       });
     } catch (e) {
@@ -324,7 +337,8 @@ export default function BalanceCheck() {
       '序号': t.id + 1,
       '钱包地址': t.address,
       '项目': t.project,
-      '余额': t.balance !== null ? t.balance : '-',
+      '平台币余额': t.nativeBalance !== null ? t.nativeBalance : '-',
+      '代币余额': t.tokenBalance !== null ? t.tokenBalance : '-',
       '状态': t.status === 'success' ? '成功' : t.status === 'error' ? '失败' : '待查询',
       '错误信息': t.error || ''
     }));
@@ -338,7 +352,8 @@ export default function BalanceCheck() {
       { wch: 8 },
       { wch: 45 },
       { wch: 20 },
-      { wch: 20 },
+      { wch: 18 },
+      { wch: 18 },
       { wch: 10 },
       { wch: 40 }
     ];
@@ -556,7 +571,8 @@ export default function BalanceCheck() {
                   <th width="60">序号</th>
                   <th>钱包地址</th>
                   <th width="100">项目</th>
-                  <th width="150">余额</th>
+                  <th width="150">平台币余额</th>
+                  <th width="150">代币余额</th>
                   <th width="100">状态</th>
                   <th width="100">操作</th>
                 </tr>
@@ -580,8 +596,15 @@ export default function BalanceCheck() {
                     </td>
                     <td>{task.project}</td>
                     <td>
-                      {task.balance !== null ? (
-                        <span className="balance-text">{task.balance}</span>
+                      {task.nativeBalance !== null ? (
+                        <span className="balance-text">{task.nativeBalance}</span>
+                      ) : (
+                        '-'
+                      )}
+                    </td>
+                    <td>
+                      {task.tokenBalance !== null ? (
+                        <span className="balance-text token-balance">{task.tokenBalance}</span>
                       ) : (
                         '-'
                       )}
