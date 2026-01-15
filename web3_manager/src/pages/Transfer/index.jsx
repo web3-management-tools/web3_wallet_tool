@@ -26,11 +26,17 @@ import './index.css';
 
 const COMMON_NETWORKS = [
   { name: 'Ethereum Mainnet', chainId: 1, rpc: 'https://eth.llamarpc.com' },
-  { name: 'BSC Mainnet', chainId: 56, rpc: 'https://binance.llamarpc.com' },
-  { name: 'Polygon Mainnet', chainId: 137, rpc: 'https://polygon.llamarpc.com' },
-  { name: 'Arbitrum One', chainId: 42161, rpc: 'https://arbitrum.llamarpc.com' },
-  { name: 'Optimism', chainId: 10, rpc: 'https://optimism.llamarpc.com' },
-  { name: 'Sepolia Testnet', chainId: 11155111, rpc: 'https://rpc.sepolia.org' },
+  { name: 'BSC Mainnet', chainId: 56, rpc: 'https://bsc-dataseed1.binance.org' },
+  { name: 'Polygon Mainnet', chainId: 137, rpc: 'https://polygon-rpc.com' },
+  { name: 'Arbitrum One', chainId: 42161, rpc: 'https://arb1.arbitrum.io/rpc' },
+  { name: 'Optimism', chainId: 10, rpc: 'https://mainnet.optimism.io' },
+  { name: 'Avalanche C-Chain', chainId: 43114, rpc: 'https://api.avax.network/ext/bc/C/rpc' },
+  { name: 'Base', chainId: 8453, rpc: 'https://base.llamarpc.com' },
+  { name: 'zkSync Era', chainId: 324, rpc: 'https://zksync-era.public.blastapi.io' },
+  { name: 'Linea', chainId: 59144, rpc: 'https://linea.blockpi.network/v1/rpc/public' },
+  { name: 'Mantle', chainId: 5000, rpc: 'https://rpc.mantle.xyz' },
+  { name: 'Scroll', chainId: 534352, rpc: 'https://rpc.scroll.io' },
+  { name: 'Metis', chainId: 1088, rpc: 'https://andromeda.metis.io/?owner=1088' },
 ];
 
 export default function Transfer() {

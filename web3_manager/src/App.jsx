@@ -17,7 +17,8 @@ import {
   FolderKanban,
   Building2,
   Share2,
-  ArrowUpRight
+  ArrowUpRight,
+  Coins
 } from 'lucide-react';
 import WalletList from './pages/WalletList';
 import CreateWallet from './pages/CreateWallet';
@@ -28,6 +29,7 @@ import Distribution from './pages/Distribution';
 import ProjectInfo from './pages/ProjectInfo';
 import Exchange from './pages/Exchange';
 import SecurityNotice from './pages/SecurityNotice';
+import BalanceCheck from './pages/BalanceCheck';
 import './App.css';
 
 function App() {
@@ -105,6 +107,7 @@ function App() {
         { id: 'wallet-list', label: '钱包列表', icon: <LayoutDashboard size={18} /> },
         { id: 'create-wallet', label: '创建钱包', icon: <PlusCircle size={18} /> },
         { id: 'import-wallet', label: '导入钱包', icon: <Download size={18} /> },
+        { id: 'balance-check', label: '余额查询', icon: <Coins size={18} /> },
       ]
     },
     {
@@ -139,6 +142,7 @@ function App() {
       case 'distribution': return <Distribution />;
       case 'exchange': return <Exchange />;
       case 'exchange-withdraw': return <Exchange initialTab="withdraw" />;
+      case 'balance-check': return <BalanceCheck />;
       default: return <WalletList />;
     }
   };
