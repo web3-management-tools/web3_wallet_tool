@@ -318,7 +318,7 @@ export default function WalletList({ initialProject }) {
                       <td><span className="id-badge">{wallet.index}</span></td>
                       <td>
                         <div className="mono-cell">
-                          <span className="mono">{formatAddress(wallet.address)}</span>
+                          <span className="mono">{wallet.address}</span>
                           <button className="copy-icon-btn" onClick={() => copyToClipboard(wallet.address, '地址')}><Copy size={12}/></button>
                         </div>
                       </td>
