@@ -349,31 +349,23 @@ def queryProjectStatistics():
     logger.debug('[queryProjectStatistics] 查询项目统计信息')
     session = sessionmaker(getDbEngine())()
     try:
-        # 查询每个项目的钱包数量
+        from sqlalchemy import func
+
+        # 使用 SQL 的 COUNT() 和 GROUP BY 高效统计每个项目的钱包数量
         result = session.query(
             Wallet.project,
-            Wallet.index
-        ).all()
-
-        # 统计每个项目的钱包数量
-        project_count = {}
-        for row in result:
-            project = row.project
-            if project not in project_count:
-                project_count[project] = set()
-            if row.index:
-                project_count[project].add(row.index)
+            func.count(Wallet.id).label('count')
+        ).group_by(Wallet.project).all()
 
         # 构建返回数据
         project_stats = []
-        for project, indexes in project_count.items():
+        total_count = 0
+        for row in result:
             project_stats.append({
-                "project": project,
-                "count": len(indexes)
+                "project": row.project,
+                "count": row.count
             })
-
-        # 计算总钱包数
-        total_count = sum(len(indexes) for indexes in project_count.values())
+            total_count += row.count
 
         logger.debug(f'[queryProjectStatistics] 查询到 {len(project_stats)} 个项目，总钱包数: {total_count}')
         return project_stats, total_count
