@@ -57,18 +57,48 @@ function App() {
 
   const detectIncognito = async () => {
     let isIncognito = false;
+    let detectionMethods = [];
 
     try {
       // 1. Chrome & Edge detection (Quota based - Reliable for Chromium 76+)
       if (navigator.storage && navigator.storage.estimate) {
-        const { quota } = await navigator.storage.estimate();
-        // 通常普通模式配额远大于 10GB，无痕模式通常小于 4GB (甚至是几百MB)
-        if (quota < 8000000000) { 
+        const { quota, usage } = await navigator.storage.estimate();
+        // 普通模式配额通常远大于 10GB（20GB+），无痕模式通常在 2-10GB 之间
+        // 根据实际情况，将阈值设置为 10GB
+        const isLowQuota = quota < 10000000000;
+        const usageRatio = usage && quota ? (usage / quota) : 0;
+        
+        if (isLowQuota) {
           isIncognito = true;
+          detectionMethods.push('quota');
+        }
+        console.log(`Storage Quota: ${(quota / 1024 / 1024 / 1024).toFixed(2)}GB, Usage: ${(usage / 1024 / 1024).toFixed(2)}MB, Ratio: ${usageRatio.toFixed(4)}`);
+      }
+
+      // 2. Chrome & Edge FileSystem API detection (辅助验证)
+      if (!isIncognito && window.webkitRequestFileSystem) {
+        try {
+          await new Promise((resolve, reject) => {
+            window.webkitRequestFileSystem(
+              window.TEMPORARY,
+              1,
+              () => resolve(false),
+              () => resolve(true)
+            );
+          }).then((result) => {
+            if (result) {
+              isIncognito = true;
+              detectionMethods.push('filesystem');
+            }
+          });
+        } catch (e) {
+          // FileSystem API 失败，可能是因为无痕模式
+          isIncognito = true;
+          detectionMethods.push('filesystem-error');
         }
       }
 
-      // 2. Firefox detection (IndexedDB based)
+      // 3. Firefox detection (IndexedDB based)
       if (!isIncognito && /Firefox/.test(navigator.userAgent)) {
         isIncognito = await new Promise(resolve => {
           const db = indexedDB.open("test_incognito");
@@ -78,22 +108,37 @@ function App() {
             resolve(false);
           };
         });
+        if (isIncognito) detectionMethods.push('indexeddb');
       }
 
-      // 3. Safari detection
+      // 4. Safari detection
       if (!isIncognito && /Safari/.test(navigator.userAgent) && !/Chrome/.test(navigator.userAgent)) {
         try {
           window.openDatabase(null, null, null, null);
           isIncognito = false;
         } catch (e) {
           isIncognito = true;
+          detectionMethods.push('safari-db');
+        }
+      }
+
+      // 5. 通用检测：尝试访问 localStorage
+      if (!isIncognito) {
+        try {
+          localStorage.setItem('test_incognito', 'test');
+          localStorage.removeItem('test_incognito');
+        } catch (e) {
+          // 某些浏览器在无痕模式下禁用 localStorage
+          isIncognito = true;
+          detectionMethods.push('localStorage');
         }
       }
     } catch (e) {
       isIncognito = false;
+      console.error('Incognito detection error:', e);
     }
 
-    console.log("Detection Result - isIncognito:", isIncognito);
+    console.log("Detection Result - isIncognito:", isIncognito, "Methods:", detectionMethods);
     setIsPrivate(isIncognito);
   };
 
