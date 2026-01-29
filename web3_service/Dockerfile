@@ -31,7 +31,7 @@ COPY . .
 RUN mkdir -p /app/mysql_data
 
 # 暴露端口
-EXPOSE 3000
+EXPOSE 30000
 
 # 启动命令
 CMD ["python", "app.py"]

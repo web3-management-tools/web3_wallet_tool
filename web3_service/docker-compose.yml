@@ -12,9 +12,9 @@ services:
       MYSQL_PASSWORD: ${MYSQL_PASSWORD:-1q2w3e4r5t}
       MYSQL_DATABASE: ${MYSQL_DATABASE:-lumao}
       FLASK_HOST: ${FLASK_HOST:-0.0.0.0}
-      FLASK_PORT: ${FLASK_PORT:-3000}
+      FLASK_PORT: ${FLASK_PORT:-30000}
       LOG_LEVEL: ${LOG_LEVEL:-INFO}
     ports:
-      - "${FLASK_PORT:-3000}:3000"
+      - "${FLASK_PORT:-30000}:30000"
     volumes:
       - ./mysql_data:/app/mysql_data

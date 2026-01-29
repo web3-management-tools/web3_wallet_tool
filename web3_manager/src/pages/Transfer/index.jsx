@@ -42,6 +42,8 @@ const COMMON_NETWORKS = [
 export default function Transfer() {
   const [password, setPassword] = useState('');
   const [project, setProject] = useState('');
+  const [projectInput, setProjectInput] = useState('');
+  const [showProjectDropdown, setShowProjectDropdown] = useState(false);
   const [projects, setProjects] = useState([]);
   const [network, setNetwork] = useState(COMMON_NETWORKS[0]);
   const [customRpc, setCustomRpc] = useState('');
@@ -95,6 +97,23 @@ export default function Transfer() {
     if (res.success) setProjects(res.data || []);
   };
 
+  const handleProjectInputChange = (value) => {
+    setProjectInput(value);
+    setShowProjectDropdown(true);
+  };
+
+  const handleProjectSelect = (selectedProject) => {
+    setProject(selectedProject);
+    setProjectInput(selectedProject);
+    setShowProjectDropdown(false);
+  };
+
+  const getFilteredProjects = () => {
+    if (!projectInput.trim()) return projects;
+    const lowerInput = projectInput.toLowerCase();
+    return projects.filter(p => p.toLowerCase().includes(lowerInput));
+  };
+
   const handleNetworkChange = (e) => {
     const val = e.target.value;
     if (val === 'custom') {
@@ -127,7 +146,6 @@ export default function Transfer() {
           balance: '0', amount: '', status: 'pending', txHash: '', error: '', selected: true
         }));
         setTransferTasks(tasks);
-        fetchBalances(tasks);
         setMessage({ type: 'success', text: `成功加载 ${tasks.length} 个钱包数据` });
       } else { setMessage({ type: 'error', text: res.msg }); }
     } catch (error) { setMessage({ type: 'error', text: error.message }); }
@@ -178,15 +196,38 @@ export default function Transfer() {
 
   const executeTransfer = async (index) => {
     const task = transferTasks[index];
-    const amount = calculateAmount(task);
     const rpcUrl = getActiveRpc();
-    if (!task.to || parseFloat(amount) <= 0 || !rpcUrl) {
-      updateTask(index, { status: 'error', error: '无效配置、地址或余额不足' });
+    if (!task.to || !rpcUrl) {
+      updateTask(index, { status: 'error', error: '无效配置或地址' });
       return;
     }
-    updateTask(index, { status: 'processing', error: '', amount });
+    
+    updateTask(index, { status: 'processing', error: '' });
+    
     try {
       const provider = new ethers.JsonRpcProvider(rpcUrl);
+      
+      // 查询余额
+      let balance;
+      if (tokenType === 'native') {
+        balance = await provider.getBalance(task.from);
+        updateTask(index, { balance: ethers.formatEther(balance) });
+      } else {
+        const abi = ["function balanceOf(address) view returns (uint256)"];
+        const contract = new ethers.Contract(tokenAddress, abi, provider);
+        balance = await contract.balanceOf(task.from);
+        updateTask(index, { balance: ethers.formatUnits(balance, tokenDecimals) });
+      }
+      
+      const amount = calculateAmount({ ...task, balance: tokenType === 'native' ? ethers.formatEther(balance) : ethers.formatUnits(balance, tokenDecimals) });
+      
+      if (parseFloat(amount) <= 0) {
+        updateTask(index, { status: 'error', error: '余额不足或金额无效', amount });
+        return;
+      }
+      
+      updateTask(index, { amount });
+      
       const wallet = new ethers.Wallet(task.privKey, provider);
       let tx;
       if (tokenType === 'native') {
@@ -275,10 +316,33 @@ export default function Transfer() {
           <div className="setup-grid">
             <div className="input-group">
               <label>源项目</label>
-              <select value={project} onChange={(e) => setProject(e.target.value)}>
-                <option value="">请选择项目</option>
-                {projects.map(p => <option key={p} value={p}>{p}</option>)}
-              </select>
+              <div className="autocomplete-input">
+                <input
+                  type="text"
+                  placeholder="输入项目名称搜索..."
+                  value={projectInput}
+                  onChange={(e) => handleProjectInputChange(e.target.value)}
+                  onFocus={() => setShowProjectDropdown(true)}
+                  onBlur={() => setTimeout(() => setShowProjectDropdown(false), 200)}
+                />
+                {showProjectDropdown && (
+                  <div className="dropdown-list">
+                    {getFilteredProjects().length > 0 ? (
+                      getFilteredProjects().map(p => (
+                        <div
+                          key={p}
+                          className="dropdown-item"
+                          onClick={() => handleProjectSelect(p)}
+                        >
+                          {p}
+                        </div>
+                      ))
+                    ) : (
+                      <div className="dropdown-item no-result">无匹配项目</div>
+                    )}
+                  </div>
+                )}
+              </div>
             </div>
             <div className="input-group">
               <label>钱包密码</label>
@@ -286,7 +350,7 @@ export default function Transfer() {
             </div>
             <button className="fetch-btn" onClick={handleFetchWallets} disabled={loading}>
               <RefreshCw size={16} className={loading ? 'spin' : ''} /> 
-              {loading ? '加载中...' : '加载钱包与余额'}
+              {loading ? '加载中...' : '加载钱包'}
             </button>
           </div>
         </div>
@@ -353,7 +417,7 @@ export default function Transfer() {
                   <button className="retry-btn" onClick={retryFailed} disabled={loading || !transferTasks.some(t => t.selected && t.status === 'error')}>
                     <RotateCcw size={16} /> 重试失败
                   </button>
-                  <button className="run-all-btn" onClick={executeAll} disabled={loading || fetchingBalances || transferTasks.length === 0}>
+                  <button className="run-all-btn" onClick={executeAll} disabled={loading || transferTasks.length === 0}>
                     <Send size={16} /> 批量执行
                   </button>
                 </div>
@@ -404,7 +468,7 @@ export default function Transfer() {
                           <div className="wallet-info">
                             <span className="addr-mono">{task.from.slice(0,6)}...{task.from.slice(-4)}</span>
                             <span className="bal-text">
-                              {fetchingBalances ? '...' : parseFloat(task.balance).toFixed(4)} {tokenType === 'native' ? 'ETH' : tokenSymbol}
+                              {parseFloat(task.balance).toFixed(4)} {tokenType === 'native' ? 'ETH' : tokenSymbol}
                             </span>
                           </div>
                         </td>
