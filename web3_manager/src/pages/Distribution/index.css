@@ -3,7 +3,8 @@
   margin: 0 auto;
   display: flex;
   flex-direction: column;
-  gap: 16px; /* 减小页面大间距 */
+  gap: 16px;
+  /* 减小页面大间距 */
 }
 
 .setup-section-dist {
@@ -13,11 +14,13 @@
 }
 
 /* Card Tightening */
-.setup-card, .action-card {
+.setup-card,
+.action-card {
   background: white;
   border: 1px solid var(--border-color);
   border-radius: var(--radius-md);
-  padding: 16px 20px; /* 减小内边距 */
+  padding: 16px 20px;
+  /* 减小内边距 */
   position: relative;
   box-shadow: var(--shadow-sm);
 }
@@ -34,9 +37,11 @@
   border-radius: 20px;
 }
 
-.setup-card h3, .action-card h3 {
+.setup-card h3,
+.action-card h3 {
   font-size: 0.9375rem;
-  margin-bottom: 16px; /* 减小标题下间距 */
+  margin-bottom: 16px;
+  /* 减小标题下间距 */
   display: flex;
   align-items: center;
   gap: 8px;
@@ -44,16 +49,19 @@
 }
 
 /* Form Tightening */
-.verify-grid, .dist-config-grid-v {
+.verify-grid,
+.dist-config-grid-v {
   display: flex;
   flex-direction: column;
-  gap: 12px; /* 紧凑表单间距 */
+  gap: 12px;
+  /* 紧凑表单间距 */
 }
 
 .input-group {
   display: flex;
   flex-direction: column;
-  gap: 4px; /* 标签与输入框更贴近 */
+  gap: 4px;
+  /* 标签与输入框更贴近 */
 }
 
 .input-group label {
@@ -63,8 +71,10 @@
   text-transform: uppercase;
 }
 
-.input-group input, .input-group select {
-  height: 38px; /* 略微减小高度 */
+.input-group input,
+.input-group select {
+  height: 38px;
+  /* 略微减小高度 */
   padding: 0 10px;
   background: var(--bg-main);
   border: 1px solid var(--border-color);
@@ -160,8 +170,29 @@
 }
 
 .generate-tasks-btn {
-  height: 40px;
-  font-size: 0.875rem;
+  height: 48px;
+  background: linear-gradient(135deg, #2563eb, #4f46e5);
+  color: white;
+  border: none;
+  border-radius: var(--radius-sm);
+  font-weight: 700;
+  font-size: 0.9375rem;
+  cursor: pointer;
+  transition: var(--transition);
+  box-shadow: var(--shadow-sm);
+}
+
+.generate-tasks-btn:hover:not(:disabled) {
+  opacity: 0.9;
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(59, 130, 246, 0.4);
+}
+
+.generate-tasks-btn:disabled {
+  background: var(--text-muted);
+  cursor: not-allowed;
+  opacity: 0.7;
+  box-shadow: none;
 }
 
 /* Table Area */
@@ -174,10 +205,13 @@
   border-bottom: 1px solid var(--border-color);
 }
 
-.tasks-header h3 { margin-bottom: 0; }
+.tasks-header h3 {
+  margin-bottom: 0;
+}
 
 .task-table td {
-  padding: 8px 16px; /* 紧凑表格单元格 */
+  padding: 8px 16px;
+  /* 紧凑表格单元格 */
   font-size: 0.8125rem;
 }
 
@@ -197,5 +231,7 @@
 }
 
 @media (max-width: 900px) {
-  .setup-section-dist { grid-template-columns: 1fr; }
+  .setup-section-dist {
+    grid-template-columns: 1fr;
+  }
 }

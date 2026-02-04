@@ -89,14 +89,16 @@ export default function Transfer() {
         if (!rpc) return;
         const provider = new ethers.JsonRpcProvider(rpc);
         const feeData = await provider.getFeeData();
-        const price = feeData.maxFeePerGas || feeData.gasPrice;
+        // 显示逻辑：优先展示 gasPrice (即当前的 Base+Priority 或 Legacy Price)，
+        // 因为 maxFeePerGas 通常是 BaseFee 的2倍用于防抖，显示出来会显得虚高。
+        const price = feeData.gasPrice || feeData.maxFeePerGas;
         if (price) {
-          setCurrentGasPrice(parseFloat(ethers.formatUnits(price, 'gwei')).toFixed(2));
+          setCurrentGasPrice(parseFloat(ethers.formatUnits(price, 'gwei')).toFixed(4)); // 保留4位小数以显示低Gas链的微小变化
         }
       } catch (e) { console.warn("Fetch Gas Error:", e); }
     };
     fetchGas();
-    const interval = setInterval(fetchGas, 10000); // 10秒刷新一次
+    const interval = setInterval(fetchGas, 5000); // 加快刷新频率：5秒
     return () => clearInterval(interval);
   }, [network, isCustomRpc, customRpc]);
 

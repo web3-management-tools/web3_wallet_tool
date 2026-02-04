@@ -23,12 +23,19 @@ import PasswordInput from '../../components/PasswordInput';
 import './index.css';
 
 const COMMON_NETWORKS = [
-  { name: 'Ethereum Mainnet', chainId: 1, rpc: 'https://eth.llamarpc.com' },
-  { name: 'BSC Mainnet', chainId: 56, rpc: 'https://binance.llamarpc.com' },
-  { name: 'Polygon Mainnet', chainId: 137, rpc: 'https://polygon.llamarpc.com' },
-  { name: 'Arbitrum One', chainId: 42161, rpc: 'https://arbitrum.llamarpc.com' },
-  { name: 'Optimism', chainId: 10, rpc: 'https://optimism.llamarpc.com' },
-  { name: 'Sepolia Testnet', chainId: 11155111, rpc: 'https://rpc.sepolia.org' },
+  { name: 'Ethereum Mainnet', chainId: 1, rpcs: ['https://rpc.flashbots.net', 'https://ethereum.publicnode.com', 'https://1rpc.io/eth'] },
+  { name: 'BSC Mainnet', chainId: 56, rpcs: ['https://bsc-dataseed1.binance.org', 'https://binance.llamarpc.com', 'https://bsc-dataseed.binance.org'] },
+  { name: 'Polygon Mainnet', chainId: 137, rpcs: ['https://polygon-rpc.com', 'https://polygon.llamarpc.com', 'https://1rpc.io/matic'] },
+  { name: 'Arbitrum One', chainId: 42161, rpcs: ['https://arb1.arbitrum.io/rpc', 'https://arbitrum.llamarpc.com', 'https://1rpc.io/arb'] },
+  { name: 'Optimism', chainId: 10, rpcs: ['https://mainnet.optimism.io', 'https://optimism.llamarpc.com', 'https://1rpc.io/op'] },
+  { name: 'Avalanche C-Chain', chainId: 43114, rpcs: ['https://api.avax.network/ext/bc/C/rpc', 'https://1rpc.io/avax/c', 'https://avalanche.public-rpc.com'] },
+  { name: 'Base', chainId: 8453, rpcs: ['https://mainnet.base.org', 'https://1rpc.io/base', 'https://base.llamarpc.com'] },
+  { name: 'zkSync Era', chainId: 324, rpcs: ['https://mainnet.era.zksync.io', 'https://1rpc.io/zksync2-era', 'https://zksync-era.public.blastapi.io'] },
+  { name: 'Linea', chainId: 59144, rpcs: ['https://rpc.linea.build', 'https://linea.blockpi.network/v1/rpc/public', 'https://1rpc.io/linea'] },
+  { name: 'Mantle', chainId: 5000, rpcs: ['https://rpc.mantle.xyz', 'https://1rpc.io/mantle'] },
+  { name: 'Scroll', chainId: 534352, rpcs: ['https://rpc.scroll.io', 'https://1rpc.io/scroll', 'https://scroll.blockpi.network/v1/rpc/public'] },
+  { name: 'Metis', chainId: 1088, rpcs: ['https://andromeda.metis.io/?owner=1088', 'https://metis.publicnode.com'] },
+  { name: 'Sepolia Testnet', chainId: 11155111, rpcs: ['https://rpc.sepolia.org', 'https://sepolia.public.blastapi.io'] },
 ];
 
 export default function Distribution() {
@@ -36,11 +43,11 @@ export default function Distribution() {
   const [sourceAddress, setSourceInput] = useState('');
   const [targetInput, setTargetInput] = useState('');
   const [sourceInfo, setSourceInfo] = useState(null);
-  
+
   const [network, setNetwork] = useState(COMMON_NETWORKS[0]);
   const [customRpc, setCustomRpc] = useState('');
   const [isCustomRpc, setIsCustomRpc] = useState(false);
-  
+
   // Token states
   const [tokenType, setTokenType] = useState('native');
   const [tokenAddress, setTokenAddress] = useState('');
@@ -48,6 +55,9 @@ export default function Distribution() {
   const [tokenDecimals, setTokenDecimals] = useState(18);
 
   const [randomRange, setRandomRange] = useState({ min: '', max: '' });
+  const [gasBoost, setGasBoost] = useState('0'); // Gwei
+  const [currentGasPrice, setCurrentGasPrice] = useState(null);
+
   const [transferTasks, setTransferTasks] = useState([]);
   const [loading, setLoading] = useState(false);
   const [verifying, setVerifying] = useState(false);
@@ -60,7 +70,31 @@ export default function Distribution() {
     }
   }, [message]);
 
-  const getActiveRpc = () => isCustomRpc ? customRpc : network.rpc;
+  const getRpcList = () => {
+    if (isCustomRpc) return [customRpc];
+    const currentDef = COMMON_NETWORKS.find(n => n.chainId === network.chainId);
+    return currentDef?.rpcs || [network.rpc];
+  };
+  const getActiveRpc = () => getRpcList()[0];
+
+  // 自动刷新 Gas
+  useEffect(() => {
+    const fetchGas = async () => {
+      try {
+        const rpc = getActiveRpc();
+        if (!rpc) return;
+        const provider = new ethers.JsonRpcProvider(rpc);
+        const feeData = await provider.getFeeData();
+        const price = feeData.gasPrice || feeData.maxFeePerGas;
+        if (price) {
+          setCurrentGasPrice(parseFloat(ethers.formatUnits(price, 'gwei')).toFixed(4));
+        }
+      } catch (e) { console.warn("Fetch Gas Error:", e); }
+    };
+    fetchGas();
+    const interval = setInterval(fetchGas, 5000);
+    return () => clearInterval(interval);
+  }, [network, isCustomRpc, customRpc]);
 
   // Auto fetch token info
   useEffect(() => {
@@ -103,15 +137,36 @@ export default function Distribution() {
     try {
       const res = await walletList({ address: sourceAddress.trim(), pwd: password });
       if (res.success && res.data && res.data.length > 0) {
-        const w = res.data[0];
-        const privKey = await decryptPrivateKey(w.privateKey);
-        setSourceInfo({ address: w.address, privKey, verified: true });
-        setMessage({ type: 'success', text: '源钱包私钥校验成功' });
+        let validWallet = null;
+        let validPk = '';
+
+        // 遍历所有返回的钱包，尝试解密直到找到一个有效的
+        for (const w of res.data) {
+          try {
+            const pk = await decryptPrivateKey(w.privateKey);
+            if (pk && pk.length >= 64) {
+              // 简单验证是否是有效私钥格式
+              new ethers.Wallet(pk);
+              validWallet = w;
+              validPk = pk;
+              break; // 找到第一个有效的就停止
+            }
+          } catch (e) {
+            continue; // 解密失败则尝试下一个
+          }
+        }
+
+        if (validWallet) {
+          setSourceInfo({ address: validWallet.address, privKey: validPk, verified: true });
+          setMessage({ type: 'success', text: '源钱包私钥校验成功' });
+        } else {
+          throw new Error('未找到有效的私钥，请检查密码或钱包文件');
+        }
       } else {
         setMessage({ type: 'error', text: '地址未找到或密码错误' });
       }
     } catch (e) {
-      setMessage({ type: 'error', text: '解密失败：' + e.message });
+      setMessage({ type: 'error', text: '校验失败：' + e.message });
     } finally {
       setVerifying(false);
     }
@@ -153,31 +208,101 @@ export default function Distribution() {
 
   const executeTransfer = async (index) => {
     const task = transferTasks[index];
-    const rpcUrl = getActiveRpc();
-    if (!task.to || parseFloat(task.amount) <= 0 || !rpcUrl) {
+    const rpcList = getRpcList();
+
+    // 地址规范化
+    let toAddr, tokenAddr;
+    try {
+      toAddr = ethers.getAddress(task.to);
+      if (tokenType === 'erc20') tokenAddr = ethers.getAddress(tokenAddress);
+    } catch (e) {
+      // Fallback
+      toAddr = task.to;
+      tokenAddr = tokenAddress;
+    }
+
+    if (!toAddr || parseFloat(task.amount) <= 0 || rpcList.length === 0) {
       updateTask(index, { status: 'error', error: '无效配置或金额' });
       return;
     }
     updateTask(index, { status: 'processing', error: '' });
-    try {
-      const provider = new ethers.JsonRpcProvider(rpcUrl);
-      const wallet = new ethers.Wallet(task.privKey, provider);
-      
-      let tx;
-      if (tokenType === 'native') {
-        tx = await wallet.sendTransaction({ to: task.to, value: ethers.parseEther(task.amount) });
-      } else {
-        const abi = ["function transfer(address to, uint256 amount) public returns (bool)"];
-        const contract = new ethers.Contract(tokenAddress, abi, wallet);
-        tx = await contract.transfer(task.to, ethers.parseUnits(task.amount, tokenDecimals));
+
+    let lastError;
+    for (const rpcUrl of rpcList) {
+      try {
+        const provider = new ethers.JsonRpcProvider(rpcUrl);
+        const wallet = new ethers.Wallet(task.privKey, provider);
+
+        // Gas 准备
+        const feeData = await provider.getFeeData();
+        let finalMaxFee = feeData.maxFeePerGas;
+        let finalPriority = feeData.maxPriorityFeePerGas;
+        let finalGasPrice = feeData.gasPrice;
+
+        const boostVal = parseFloat(gasBoost);
+        if (!isNaN(boostVal) && boostVal > 0) {
+          const addAmount = ethers.parseUnits(boostVal.toString(), 'gwei');
+          if (finalMaxFee) { finalMaxFee += addAmount; finalPriority += addAmount; }
+          if (finalGasPrice) { finalGasPrice += addAmount; }
+        }
+
+        // Estimate Gas
+        let gasLimit;
+        let txRequest = {};
+        try {
+          if (tokenType === 'native') {
+            txRequest = { to: toAddr, value: ethers.parseEther(task.amount) };
+            gasLimit = await provider.estimateGas({ ...txRequest, from: wallet.address });
+          } else {
+            const contract = new ethers.Contract(tokenAddr, ["function transfer(address to, uint256 amount) public returns (bool)"], wallet);
+            txRequest = await contract.transfer.populateTransaction(toAddr, ethers.parseUnits(task.amount, tokenDecimals));
+            gasLimit = await provider.estimateGas(txRequest);
+          }
+          gasLimit = (gasLimit * 110n) / 100n; // 10% buffer
+        } catch (e) {
+          console.warn("Est gas failed", e);
+          gasLimit = tokenType === 'native' ? 21000n : 100000n;
+        }
+
+        // Send
+        let tx;
+        const txOptions = {
+          gasLimit,
+          maxFeePerGas: finalMaxFee,
+          maxPriorityFeePerGas: finalPriority,
+          ...(finalGasPrice && !finalMaxFee ? { gasPrice: finalGasPrice } : {})
+        };
+
+        if (tokenType === 'native') {
+          tx = await wallet.sendTransaction({ to: toAddr, value: ethers.parseEther(task.amount), ...txOptions });
+        } else {
+          const contract = new ethers.Contract(tokenAddr, ["function transfer(address to, uint256 amount) public returns (bool)"], wallet);
+          tx = await contract.transfer(toAddr, ethers.parseUnits(task.amount, tokenDecimals), txOptions);
+        }
+
+        updateTask(index, { txHash: tx.hash });
+
+        // Wait with Timeout
+        try {
+          const waitPromise = tx.wait();
+          const timeoutPromise = new Promise((_, reject) => setTimeout(() => reject(new Error('Wait Timeout')), 120000));
+          await Promise.race([waitPromise, timeoutPromise]);
+          updateTask(index, { status: 'success' });
+        } catch (waitErr) {
+          updateTask(index, { status: 'success', error: '已发送(确认超时)' });
+        }
+        return; // Success, exit retry loop
+
+      } catch (e) {
+        lastError = e;
+        console.warn(`RPC ${rpcUrl} failed`, e);
+        if (e.message && (e.message.includes('余额不足') || e.message.includes('insufficient funds'))) break;
       }
-      
-      updateTask(index, { txHash: tx.hash });
-      await tx.wait();
-      updateTask(index, { status: 'success' });
-    } catch (e) {
-      updateTask(index, { status: 'error', error: e.shortMessage || e.message });
     }
+
+    let msg = lastError?.shortMessage || lastError?.message || 'Failed';
+    if (msg.includes('could not coalesce')) msg = 'RPC无响应';
+    updateTask(index, { status: 'error', error: msg });
   };
 
   const executeAll = async () => {
@@ -255,7 +380,7 @@ export default function Distribution() {
               <RefreshCw size={16} className={verifying ? 'spin' : ''} /> 校验并获取私钥
             </button>
           </div>
-          
+
           {sourceInfo && (
             <div className="source-status-box">
               <div className="status-header">
@@ -264,7 +389,7 @@ export default function Distribution() {
               </div>
               <div className="priv-preview">
                 <Key size={12} />
-                <code>{sourceInfo.privKey.slice(0,6)}********************************{sourceInfo.privKey.slice(-4)}</code>
+                <code>{sourceInfo.privKey.slice(0, 6)}********************************{sourceInfo.privKey.slice(-4)}</code>
               </div>
             </div>
           )}
@@ -282,7 +407,7 @@ export default function Distribution() {
               </select>
             </div>
             {isCustomRpc && <input className="rpc-input" type="text" value={customRpc} onChange={(e) => setCustomRpc(e.target.value)} placeholder="RPC 地址" />}
-            
+
             <div className="input-group">
               <label>资产类型</label>
               <div className="type-toggle">
@@ -301,12 +426,30 @@ export default function Distribution() {
               </div>
             )}
 
-            <div className="input-group">
-              <label>分发金额 (随机区间)</label>
-              <div className="range-box-dist">
-                <input type="text" placeholder="Min" value={randomRange.min} onChange={(e) => setRandomRange({...randomRange, min: e.target.value})} />
-                <span>-</span>
-                <input type="text" placeholder="Max" value={randomRange.max} onChange={(e) => setRandomRange({...randomRange, max: e.target.value})} />
+            <div className="dist-row-inputs" style={{ display: 'flex', gap: '20px' }}>
+              <div className="input-group" style={{ flex: 1 }}>
+                <label>分发金额 (随机区间)</label>
+                <div className="range-box-dist">
+                  <input type="text" placeholder="Min" value={randomRange.min} onChange={(e) => setRandomRange({ ...randomRange, min: e.target.value })} />
+                  <span>-</span>
+                  <input type="text" placeholder="Max" value={randomRange.max} onChange={(e) => setRandomRange({ ...randomRange, max: e.target.value })} />
+                </div>
+              </div>
+
+              <div className="input-group" style={{ flex: 1 }}>
+                <label>
+                  Gas加注 (Gwei)
+                  {currentGasPrice && <span style={{ fontSize: '0.8em', color: 'var(--text-secondary)', marginLeft: '8px' }}>当前: {currentGasPrice}</span>}
+                </label>
+                <div style={{ display: 'flex', alignItems: 'center' }}>
+                  <input
+                    type="text"
+                    placeholder="例: 2"
+                    value={gasBoost}
+                    onChange={(e) => setGasBoost(e.target.value)}
+                    style={{ width: '100%' }}
+                  />
+                </div>
               </div>
             </div>
           </div>
@@ -318,9 +461,9 @@ export default function Distribution() {
           <div className="card-tag">STEP 3</div>
           <h3><FileText size={18} /> 批量录入目标地址</h3>
           <div className="target-form-body">
-            <textarea 
-              value={targetInput} 
-              onChange={(e) => setTargetInput(e.target.value)} 
+            <textarea
+              value={targetInput}
+              onChange={(e) => setTargetInput(e.target.value)}
               placeholder={`请在此输入目标地址列表...\n每行一个地址`}
               rows={8}
             />
@@ -350,7 +493,7 @@ export default function Distribution() {
               <table className="task-table">
                 <thead>
                   <tr>
-                    <th width="40"><input type="checkbox" checked={transferTasks.every(t => t.selected)} onChange={(e) => setTransferTasks(prev => prev.map(t => ({...t, selected: e.target.checked})))} /></th>
+                    <th width="40"><input type="checkbox" checked={transferTasks.every(t => t.selected)} onChange={(e) => setTransferTasks(prev => prev.map(t => ({ ...t, selected: e.target.checked })))} /></th>
                     <th width="80">状态</th>
                     <th>目标钱包</th>
                     <th width="150">分发金额</th>
@@ -360,7 +503,7 @@ export default function Distribution() {
                 <tbody>
                   {transferTasks.map((task, index) => (
                     <tr key={index} className={`task-row ${task.status} ${!task.selected ? 'unselected' : ''}`}>
-                      <td><input type="checkbox" checked={task.selected} onChange={(e) => updateTask(index, {selected: e.target.checked})} /></td>
+                      <td><input type="checkbox" checked={task.selected} onChange={(e) => updateTask(index, { selected: e.target.checked })} /></td>
                       <td>
                         <div className={`status-pill ${task.status}`}>
                           {task.status === 'processing' && <RefreshCw size={12} className="spin" />}
