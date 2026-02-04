@@ -248,6 +248,7 @@ export default function Transfer() {
   const calculateAmount = (task) => {
     if (amountMode === 'fixed') return task.amount || batchAmount;
     if (amountMode === 'full') {
+      if (task.balance === null) return '待检测';
       const b = parseFloat(task.balance);
       if (tokenType === 'native') return b > 0.001 ? (b - 0.001).toFixed(6) : '0';
       return b.toString();
@@ -258,6 +259,7 @@ export default function Transfer() {
       return (Math.random() * (max - min) + min).toFixed(6);
     }
     if (amountMode === 'remaining') {
+      if (task.balance === null) return '待检测';
       const keep = parseFloat(remainAmount), bal = parseFloat(task.balance);
       return bal > keep ? (bal - keep).toFixed(6) : '0';
     }
@@ -396,7 +398,39 @@ export default function Transfer() {
 
         updateTask(index, { amount: amountStr });
 
-        // 5. 发送交易
+        // 5. 发送前进行严格的余额检查
+        const sendAmountBigInt = tokenType === 'native'
+          ? ethers.parseEther(amountStr)
+          : ethers.parseUnits(amountStr, tokenDecimals);
+
+        const currentGasPriceVal = finalMaxFee || finalGasPrice;
+        if (!currentGasPriceVal) throw new Error('无法获取Gas价格');
+        const estimatedGasCost = gasLimit * currentGasPriceVal;
+
+        if (tokenType === 'native') {
+          const totalNeed = sendAmountBigInt + estimatedGasCost;
+          if (balanceBigInt < totalNeed) {
+            const missing = ethers.formatEther(totalNeed - balanceBigInt);
+            throw new Error(`余额不足 (缺 ${parseFloat(missing).toFixed(6)} ETH/Native 来支付金额+Gas)`);
+          }
+        } else {
+          // ERC20: 检查代币余额
+          if (balanceBigInt < sendAmountBigInt) {
+            const missing = ethers.formatUnits(sendAmountBigInt - balanceBigInt, tokenDecimals);
+            throw new Error(`代币余额不足 (缺 ${missing} ${tokenSymbol})`);
+          }
+          // ERC20: 额外检查 ETH 余额是否足够支付 Gas (可选，为了更好体验)
+          try {
+            const nativeBal = await provider.getBalance(fromAddr);
+            if (nativeBal < estimatedGasCost) {
+              throw new Error(`ETH/Native余额不足以支付Gas费`);
+            }
+          } catch (ignore) {
+            // 如果检查Gas余额失败，暂不阻断，依靠节点报错
+          }
+        }
+
+        // 6. 发送交易
         let tx;
         const txOptions = {
           gasLimit: gasLimit,
@@ -711,16 +745,24 @@ export default function Transfer() {
                             {task.status === 'pending' && '等待'}
                           </div>
                           {task.status === 'error' && task.error && (
-                            <div className="error-reason-text" title={task.error}>
+                            <div
+                              className="error-reason-text"
+                              title={task.error}
+                              style={{ cursor: 'pointer' }}
+                              onClick={() => {
+                                navigator.clipboard.writeText(task.error);
+                                setMessage({ type: 'success', text: '错误信息已复制' });
+                              }}
+                            >
                               {task.error}
                             </div>
                           )}
                         </td>
                         <td>
                           <div className="wallet-info">
-                            <span className="addr-mono">{task.from.slice(0, 6)}...{task.from.slice(-4)}</span>
+                            <span className="addr-mono">{task.from}</span>
                             <span className="bal-text">
-                              {parseFloat(task.balance).toFixed(4)} {tokenType === 'native' ? 'ETH' : tokenSymbol}
+                              {task.status === 'pending' ? '' : `${parseFloat(task.balance).toFixed(4)} ${tokenType === 'native' ? 'ETH' : tokenSymbol}`}
                             </span>
                           </div>
                         </td>

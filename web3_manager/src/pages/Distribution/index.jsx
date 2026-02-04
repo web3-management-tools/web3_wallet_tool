@@ -264,6 +264,37 @@ export default function Distribution() {
           gasLimit = tokenType === 'native' ? 21000n : 100000n;
         }
 
+        // 余额检查逻辑
+        const currentGasPriceVal = finalMaxFee || finalGasPrice;
+        if (!currentGasPriceVal) throw new Error('无法获取Gas价格');
+        const estimatedGasCost = gasLimit * currentGasPriceVal;
+
+        const sendAmountBigInt = ethers.parseUnits(task.amount, tokenType === 'native' ? 18 : tokenDecimals);
+
+        if (tokenType === 'native') {
+          const balanceBigInt = await provider.getBalance(wallet.address);
+          const totalNeed = sendAmountBigInt + estimatedGasCost;
+          if (balanceBigInt < totalNeed) {
+            const missing = ethers.formatEther(totalNeed - balanceBigInt);
+            throw new Error(`余额不足 (缺 ${parseFloat(missing).toFixed(6)} ETH/Native 支付金额+Gas)`);
+          }
+        } else {
+          // ERC20
+          const contract = new ethers.Contract(tokenAddr, ["function balanceOf(address) view returns (uint256)"], wallet);
+          const [tokenBal, nativeBal] = await Promise.all([
+            contract.balanceOf(wallet.address),
+            provider.getBalance(wallet.address)
+          ]);
+
+          if (tokenBal < sendAmountBigInt) {
+            const missing = ethers.formatUnits(sendAmountBigInt - tokenBal, tokenDecimals);
+            throw new Error(`代币余额不足 (缺 ${missing} ${tokenSymbol})`);
+          }
+          if (nativeBal < estimatedGasCost) {
+            throw new Error(`ETH/Native余额不足以支付Gas费`);
+          }
+        }
+
         // Send
         let tx;
         const txOptions = {
@@ -511,6 +542,19 @@ export default function Distribution() {
                           {task.status === 'error' && <AlertCircle size={12} title={task.error} />}
                           {task.status === 'pending' && '就绪'}
                         </div>
+                        {task.status === 'error' && task.error && (
+                          <div
+                            className="error-reason-text"
+                            title={task.error}
+                            style={{ fontSize: '0.75rem', color: 'var(--error-color)', marginTop: '4px', maxWidth: '120px', overflow: 'hidden', textOverflow: 'ellipsis', cursor: 'pointer' }}
+                            onClick={() => {
+                              navigator.clipboard.writeText(task.error);
+                              setMessage({ type: 'success', text: '错误信息已复制' });
+                            }}
+                          >
+                            {task.error}
+                          </div>
+                        )}
                       </td>
                       <td className="mono">{task.to}</td>
                       <td className="amount-val">{task.amount} {tokenType === 'native' ? 'Native' : tokenSymbol}</td>
