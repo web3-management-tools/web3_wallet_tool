@@ -1,10 +1,10 @@
 import React, { useState, useEffect } from 'react';
-import { 
-  Send, 
-  Settings, 
-  Shield, 
-  AlertCircle, 
-  CheckCircle, 
+import {
+  Send,
+  Settings,
+  Shield,
+  AlertCircle,
+  CheckCircle,
   RefreshCw,
   ArrowRight,
   Coins,
@@ -25,18 +25,18 @@ import PasswordInput from '../../components/PasswordInput';
 import './index.css';
 
 const COMMON_NETWORKS = [
-  { name: 'Ethereum Mainnet', chainId: 1, rpc: 'https://eth.llamarpc.com' },
-  { name: 'BSC Mainnet', chainId: 56, rpc: 'https://bsc-dataseed1.binance.org' },
-  { name: 'Polygon Mainnet', chainId: 137, rpc: 'https://polygon-rpc.com' },
-  { name: 'Arbitrum One', chainId: 42161, rpc: 'https://arb1.arbitrum.io/rpc' },
-  { name: 'Optimism', chainId: 10, rpc: 'https://mainnet.optimism.io' },
-  { name: 'Avalanche C-Chain', chainId: 43114, rpc: 'https://api.avax.network/ext/bc/C/rpc' },
-  { name: 'Base', chainId: 8453, rpc: 'https://base.llamarpc.com' },
-  { name: 'zkSync Era', chainId: 324, rpc: 'https://zksync-era.public.blastapi.io' },
-  { name: 'Linea', chainId: 59144, rpc: 'https://linea.blockpi.network/v1/rpc/public' },
-  { name: 'Mantle', chainId: 5000, rpc: 'https://rpc.mantle.xyz' },
-  { name: 'Scroll', chainId: 534352, rpc: 'https://rpc.scroll.io' },
-  { name: 'Metis', chainId: 1088, rpc: 'https://andromeda.metis.io/?owner=1088' },
+  { name: 'Ethereum Mainnet', chainId: 1, rpcs: ['https://rpc.flashbots.net', 'https://ethereum.publicnode.com', 'https://1rpc.io/eth'] },
+  { name: 'BSC Mainnet', chainId: 56, rpcs: ['https://bsc-dataseed1.binance.org', 'https://binance.llamarpc.com', 'https://bsc-dataseed.binance.org'] },
+  { name: 'Polygon Mainnet', chainId: 137, rpcs: ['https://polygon-rpc.com', 'https://polygon.llamarpc.com', 'https://1rpc.io/matic'] },
+  { name: 'Arbitrum One', chainId: 42161, rpcs: ['https://arb1.arbitrum.io/rpc', 'https://arbitrum.llamarpc.com', 'https://1rpc.io/arb'] },
+  { name: 'Optimism', chainId: 10, rpcs: ['https://mainnet.optimism.io', 'https://optimism.llamarpc.com', 'https://1rpc.io/op'] },
+  { name: 'Avalanche C-Chain', chainId: 43114, rpcs: ['https://api.avax.network/ext/bc/C/rpc', 'https://1rpc.io/avax/c', 'https://avalanche.public-rpc.com'] },
+  { name: 'Base', chainId: 8453, rpcs: ['https://mainnet.base.org', 'https://1rpc.io/base', 'https://base.llamarpc.com'] },
+  { name: 'zkSync Era', chainId: 324, rpcs: ['https://mainnet.era.zksync.io', 'https://1rpc.io/zksync2-era', 'https://zksync-era.public.blastapi.io'] },
+  { name: 'Linea', chainId: 59144, rpcs: ['https://rpc.linea.build', 'https://linea.blockpi.network/v1/rpc/public', 'https://1rpc.io/linea'] },
+  { name: 'Mantle', chainId: 5000, rpcs: ['https://rpc.mantle.xyz', 'https://1rpc.io/mantle'] },
+  { name: 'Scroll', chainId: 534352, rpcs: ['https://rpc.scroll.io', 'https://1rpc.io/scroll', 'https://scroll.blockpi.network/v1/rpc/public'] },
+  { name: 'Metis', chainId: 1088, rpcs: ['https://andromeda.metis.io/?owner=1088', 'https://metis.publicnode.com'] },
 ];
 
 export default function Transfer() {
@@ -56,6 +56,9 @@ export default function Transfer() {
   const [batchAmount, setBatchAmount] = useState('');
   const [randomRange, setRandomRange] = useState({ min: '', max: '' });
   const [remainAmount, setRemainAmount] = useState('');
+  const [sleepRange, setSleepRange] = useState({ min: '', max: '' });
+  const [gasBoost, setGasBoost] = useState('0'); // Default 0 Gwei
+  const [currentGasPrice, setCurrentGasPrice] = useState(null);
   const [transferTasks, setTransferTasks] = useState([]);
   const [loading, setLoading] = useState(false);
   const [fetchingBalances, setFetchingBalances] = useState(false);
@@ -71,7 +74,31 @@ export default function Transfer() {
     }
   }, [message]);
 
-  const getActiveRpc = () => isCustomRpc ? customRpc : network.rpc;
+  const getRpcList = () => {
+    if (isCustomRpc) return [customRpc];
+    const currentDef = COMMON_NETWORKS.find(n => n.chainId === network.chainId);
+    return currentDef?.rpcs || [network.rpc];
+  };
+  const getActiveRpc = () => getRpcList()[0];
+
+  // 自动刷新当前 Gas 价格
+  useEffect(() => {
+    const fetchGas = async () => {
+      try {
+        const rpc = getActiveRpc();
+        if (!rpc) return;
+        const provider = new ethers.JsonRpcProvider(rpc);
+        const feeData = await provider.getFeeData();
+        const price = feeData.maxFeePerGas || feeData.gasPrice;
+        if (price) {
+          setCurrentGasPrice(parseFloat(ethers.formatUnits(price, 'gwei')).toFixed(2));
+        }
+      } catch (e) { console.warn("Fetch Gas Error:", e); }
+    };
+    fetchGas();
+    const interval = setInterval(fetchGas, 10000); // 10秒刷新一次
+    return () => clearInterval(interval);
+  }, [network, isCustomRpc, customRpc]);
 
   useEffect(() => {
     if (tokenType === 'erc20' && ethers.isAddress(tokenAddress)) {
@@ -135,29 +162,70 @@ export default function Transfer() {
       const res = await walletList({ project, pwd: password });
       if (res.success) {
         const wallets = res.data || [];
-        const decrypted = await Promise.all(wallets.map(async w => ({
-          ...w, privKey: await decryptPrivateKey(w.privateKey)
-        })));
-        const sourceAddresses = decrypted.map(w => w.address);
+        const decrypted = await Promise.all(wallets.map(async w => {
+          try {
+            const pk = await decryptPrivateKey(w.privateKey);
+            // 简单验证私钥格式 (64位16进制 或 66位带0x)
+            if (!pk || pk.length < 64) throw new Error('Invalid Key');
+            // 尝试构建钱包以确效验证
+            new ethers.Wallet(pk);
+            return { ...w, privKey: pk, isValid: true };
+          } catch (e) {
+            return { ...w, privKey: null, isValid: false };
+          }
+        }));
+
+        const validWallets = decrypted.filter(w => w.isValid);
+        if (validWallets.length < decrypted.length) {
+          setMessage({ type: 'error', text: `${decrypted.length - validWallets.length} 个钱包私钥解密失败或无效，已跳过` });
+        }
+
+        const sourceAddresses = validWallets.map(w => w.address);
         const mappingRes = await batchQueryMapping(sourceAddresses);
         const mappingMap = Object.fromEntries((mappingRes.data || []).map(m => [m.sourceAddress.toLowerCase(), m.targetAddress]));
-        const tasks = decrypted.map(w => ({
+
+        const tasks = validWallets.map(w => ({
           from: w.address, privKey: w.privKey, to: mappingMap[w.address.toLowerCase()] || '',
           balance: '0', amount: '', status: 'pending', txHash: '', error: '', selected: true
         }));
+
         setTransferTasks(tasks);
-        setMessage({ type: 'success', text: `成功加载 ${tasks.length} 个钱包数据` });
+        if (tasks.length > 0) {
+          setMessage({ type: 'success', text: `成功加载 ${tasks.length} 个有效钱包` });
+        }
       } else { setMessage({ type: 'error', text: res.msg }); }
     } catch (error) { setMessage({ type: 'error', text: error.message }); }
     finally { setLoading(false); }
   };
 
   const fetchBalances = async (currentTasks) => {
-    const rpcUrl = getActiveRpc();
-    if (!rpcUrl || currentTasks.length === 0) return;
+    const rpcList = getRpcList();
+    if (rpcList.length === 0 || currentTasks.length === 0) return;
     setFetchingBalances(true);
+
+    // 尝试可用RPC
+    let provider = null;
+    let connectedRpc = '';
+
+    for (const url of rpcList) {
+      try {
+        const p = new ethers.JsonRpcProvider(url);
+        await p.getNetwork(); // 测试连接
+        provider = p;
+        connectedRpc = url;
+        break;
+      } catch (e) {
+        console.warn(`RPC ${url} 无法连接，切换下一个...`);
+      }
+    }
+
+    if (!provider) {
+      setMessage({ type: 'error', text: '所有RPC节点均无法连接，请检查网络' });
+      setFetchingBalances(false);
+      return;
+    }
+
     try {
-      const provider = new ethers.JsonRpcProvider(rpcUrl);
       const updatedTasks = await Promise.all(currentTasks.map(async (task) => {
         try {
           if (tokenType === 'native') {
@@ -197,50 +265,188 @@ export default function Transfer() {
   const executeTransfer = async (index) => {
     const task = transferTasks[index];
     const rpcUrl = getActiveRpc();
-    if (!task.to || !rpcUrl) {
+
+    // 规范化地址，防止 checksum 错误
+    let fromAddr, toAddr, tokenAddr;
+    try {
+      fromAddr = ethers.getAddress(task.from); // 虽然通常 loaded 时已是 correct，但安全起见
+      toAddr = ethers.getAddress(task.to);
+      if (tokenType === 'erc20') {
+        tokenAddr = ethers.getAddress(tokenAddress);
+      }
+    } catch (e) {
+      // 尝试 fallback: 如果只是大小写 checksum 失败，toLowerCase 再试一次
+      try {
+        if (!fromAddr) fromAddr = ethers.getAddress(task.from.toLowerCase());
+        if (!toAddr) toAddr = ethers.getAddress(task.to.toLowerCase());
+        if (tokenType === 'erc20' && !tokenAddr) tokenAddr = ethers.getAddress(tokenAddress.toLowerCase());
+      } catch (e2) {
+        updateTask(index, { status: 'error', error: '地址格式无效 (Checksum Error)' });
+        return;
+      }
+    }
+
+    if (!toAddr || !rpcUrl) {
       updateTask(index, { status: 'error', error: '无效配置或地址' });
       return;
     }
-    
+
     updateTask(index, { status: 'processing', error: '' });
-    
-    try {
-      const provider = new ethers.JsonRpcProvider(rpcUrl);
-      
-      // 查询余额
-      let balance;
-      if (tokenType === 'native') {
-        balance = await provider.getBalance(task.from);
-        updateTask(index, { balance: ethers.formatEther(balance) });
-      } else {
-        const abi = ["function balanceOf(address) view returns (uint256)"];
-        const contract = new ethers.Contract(tokenAddress, abi, provider);
-        balance = await contract.balanceOf(task.from);
-        updateTask(index, { balance: ethers.formatUnits(balance, tokenDecimals) });
+
+    let lastError;
+    const rpcList = getRpcList();
+
+    // 遍历 RPC 列表进行重试
+    for (let i = 0; i < rpcList.length; i++) {
+      const currentRpc = rpcList[i];
+      try {
+        const provider = new ethers.JsonRpcProvider(currentRpc);
+        // 简单验证 Provider 是否可用（可选，也可以直接跑业务逻辑）
+        // await provider.getNetwork(); 
+
+        const wallet = new ethers.Wallet(task.privKey, provider);
+
+        // 1. 查询余额 & 此处确保余额是最新的
+        let balance;
+        let balanceBigInt; // 保留 BigInt 以便后续精确计算
+        if (tokenType === 'native') {
+          balanceBigInt = await provider.getBalance(fromAddr);
+          balance = ethers.formatEther(balanceBigInt);
+          updateTask(index, { balance });
+        } else {
+          const abi = ["function balanceOf(address) view returns (uint256)"];
+          const contract = new ethers.Contract(tokenAddr, abi, provider);
+          balanceBigInt = await contract.balanceOf(fromAddr);
+          balance = ethers.formatUnits(balanceBigInt, tokenDecimals);
+          updateTask(index, { balance });
+        }
+
+        // 2. 获取 Gas 价格
+        const feeData = await provider.getFeeData();
+
+        // 处理 Gas 加注 (直接增加 Gwei)
+        let finalMaxFee = feeData.maxFeePerGas;
+        let finalPriority = feeData.maxPriorityFeePerGas;
+        let finalGasPrice = feeData.gasPrice;
+
+        const boostVal = parseFloat(gasBoost);
+        if (!isNaN(boostVal) && boostVal > 0) {
+          // 输入的是 Gwei，转换为 Wei
+          const addAmount = ethers.parseUnits(boostVal.toString(), 'gwei');
+
+          // 如果是 EIP-1559
+          if (finalMaxFee) {
+            finalMaxFee = finalMaxFee + addAmount;
+            finalPriority = finalPriority + addAmount; // 优先费也增加，即刻生效
+          }
+
+          // 如果是 Legacy
+          if (finalGasPrice) {
+            finalGasPrice = finalGasPrice + addAmount;
+          }
+        }
+
+        // 3. 预估 Gas Limit
+        let gasLimit;
+        let txRequest = {};
+
+        try {
+          if (tokenType === 'native') {
+            // 使用 BigInt 0n 防止 potential type issues
+            txRequest = { to: toAddr, value: 0n };
+            gasLimit = await provider.estimateGas({ ...txRequest, from: fromAddr });
+          } else {
+            const contract = new ethers.Contract(tokenAddr, ["function transfer(address to, uint256 amount) public returns (bool)"], wallet);
+            // ERC20: 使用 populateTransaction. 这里的 amount 1 (1 wei) 仅用于估算
+            txRequest = await contract.transfer.populateTransaction(toAddr, 1n);
+            gasLimit = await provider.estimateGas(txRequest);
+          }
+
+          // 给 10% 的缓冲
+          gasLimit = (gasLimit * 110n) / 100n;
+        } catch (err) {
+          console.warn("Gas estimate failed, reverting to default:", err);
+          // 遇到任何估算错误，强制使用默认值
+          gasLimit = tokenType === 'native' ? 21000n : 100000n;
+        }
+
+        // 4. 计算转账金额
+        let amountStr = task.amount || batchAmount;
+
+        if (amountMode === 'full') {
+          if (tokenType === 'native') {
+            const gasPrice = finalMaxFee || finalGasPrice;
+            if (!gasPrice) throw new Error('无法获取Gas价格');
+            const gasCost = gasLimit * gasPrice;
+            const maxSend = balanceBigInt - gasCost;
+            if (maxSend <= 0n) throw new Error('余额不足以支付Gas费');
+            amountStr = ethers.formatEther(maxSend);
+          } else {
+            amountStr = balance;
+          }
+        } else {
+          amountStr = calculateAmount({ ...task, balance });
+        }
+
+        if (parseFloat(amountStr) <= 0) {
+          throw new Error(`余额不足或金额无效: ${amountStr}`);
+        }
+
+        updateTask(index, { amount: amountStr });
+
+        // 5. 发送交易
+        let tx;
+        const txOptions = {
+          gasLimit: gasLimit,
+          maxFeePerGas: finalMaxFee,
+          maxPriorityFeePerGas: finalPriority,
+          ...(finalGasPrice && !finalMaxFee ? { gasPrice: finalGasPrice } : {})
+        };
+
+        if (tokenType === 'native') {
+          tx = await wallet.sendTransaction({
+            to: toAddr,
+            value: ethers.parseEther(amountStr),
+            ...txOptions
+          });
+        } else {
+          const contract = new ethers.Contract(tokenAddr, ["function transfer(address to, uint256 amount) public returns (bool)"], wallet);
+          tx = await contract.transfer(toAddr, ethers.parseUnits(amountStr, tokenDecimals), txOptions);
+        }
+        updateTask(index, { txHash: tx.hash });
+
+        // 关键修正：防止 tx.wait() 永久挂起导致页面转圈
+        try {
+          // 设置 120s (2分钟) 超时等待确认
+          const waitPromise = tx.wait();
+          const timeoutPromise = new Promise((_, reject) => setTimeout(() => reject(new Error('Wait Timeout')), 120000));
+
+          await Promise.race([waitPromise, timeoutPromise]);
+          updateTask(index, { status: 'success' });
+        } catch (waitErr) {
+          console.warn("Tx sent but wait failed/timeout:", waitErr);
+          // 超时也标记为成功，因为交易已由 RPC 接收并返回 Hash
+          updateTask(index, { status: 'success', error: '已发送(确认超时)' });
+        }
+        return; //以此切断重试循环
+
+      } catch (e) {
+        lastError = e;
+        console.warn(`RPC ${currentRpc} failed, try next...`, e);
+
+        // 关键业务逻辑错误不重试切换RPC
+        if (e.message && (e.message.includes('余额不足') || e.message.includes('无效配置'))) {
+          break;
+        }
       }
-      
-      const amount = calculateAmount({ ...task, balance: tokenType === 'native' ? ethers.formatEther(balance) : ethers.formatUnits(balance, tokenDecimals) });
-      
-      if (parseFloat(amount) <= 0) {
-        updateTask(index, { status: 'error', error: '余额不足或金额无效', amount });
-        return;
-      }
-      
-      updateTask(index, { amount });
-      
-      const wallet = new ethers.Wallet(task.privKey, provider);
-      let tx;
-      if (tokenType === 'native') {
-        tx = await wallet.sendTransaction({ to: task.to, value: ethers.parseEther(amount) });
-      } else {
-        const abi = ["function transfer(address to, uint256 amount) public returns (bool)"];
-        const contract = new ethers.Contract(tokenAddress, abi, wallet);
-        tx = await contract.transfer(task.to, ethers.parseUnits(amount, tokenDecimals));
-      }
-      updateTask(index, { txHash: tx.hash });
-      await tx.wait();
-      updateTask(index, { status: 'success' });
-    } catch (e) { updateTask(index, { status: 'error', error: e.shortMessage || e.message }); }
+    }
+
+    // 如果循环结束仍未成功
+    let finalMsg = lastError?.shortMessage || lastError?.message || 'Transaction Failed';
+    if (finalMsg.includes('could not coalesce error')) finalMsg = '所有RPC节点均无响应';
+    if (finalMsg.includes('bad address checksum')) finalMsg = '地址格式校验失败';
+
+    updateTask(index, { status: 'error', error: finalMsg });
   };
 
   const executeAll = async () => {
@@ -250,7 +456,21 @@ export default function Transfer() {
       return;
     }
     setLoading(true);
-    for (const i of ready) await executeTransfer(i);
+
+    const minSleep = parseFloat(sleepRange.min);
+    const maxSleep = parseFloat(sleepRange.max);
+    const shouldSleep = !isNaN(minSleep) && !isNaN(maxSleep) && maxSleep > minSleep;
+
+    for (let k = 0; k < ready.length; k++) {
+      const i = ready[k];
+      await executeTransfer(i);
+
+      // 如果开启了休眠，且不是最后一个任务，则进行等待
+      if (shouldSleep && k < ready.length - 1) {
+        const sleepTime = Math.random() * (maxSleep - minSleep) + minSleep;
+        await new Promise(resolve => setTimeout(resolve, sleepTime * 1000));
+      }
+    }
     setLoading(false);
     setMessage({ type: 'success', text: '批量转账任务执行完毕' });
   };
@@ -349,7 +569,7 @@ export default function Transfer() {
               <PasswordInput value={password} onChange={setPassword} />
             </div>
             <button className="fetch-btn" onClick={handleFetchWallets} disabled={loading}>
-              <RefreshCw size={16} className={loading ? 'spin' : ''} /> 
+              <RefreshCw size={16} className={loading ? 'spin' : ''} />
               {loading ? '加载中...' : '加载钱包'}
             </button>
           </div>
@@ -388,6 +608,30 @@ export default function Transfer() {
                 </div>
               </div>
             )}
+            <div className="input-group">
+              <label>任务随机休眠(秒)</label>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <input type="text" placeholder="Min" value={sleepRange.min} onChange={(e) => setSleepRange({ ...sleepRange, min: e.target.value })} style={{ width: '70px', textAlign: 'center' }} />
+                <span style={{ color: 'var(--text-secondary)' }}>-</span>
+                <input type="text" placeholder="Max" value={sleepRange.max} onChange={(e) => setSleepRange({ ...sleepRange, max: e.target.value })} style={{ width: '70px', textAlign: 'center' }} />
+              </div>
+            </div>
+
+            <div className="input-group">
+              <label>
+                Gas加注 (Gwei)
+                {currentGasPrice && <span style={{ fontSize: '0.8em', color: 'var(--text-secondary)', marginLeft: '8px' }}>当前: {currentGasPrice}</span>}
+              </label>
+              <div style={{ display: 'flex', alignItems: 'center' }}>
+                <input
+                  type="text"
+                  placeholder="例: 2 (增加2 Gwei)"
+                  value={gasBoost}
+                  onChange={(e) => setGasBoost(e.target.value)}
+                  style={{ width: '120px' }}
+                />
+              </div>
+            </div>
           </div>
         </div>
       </section>
@@ -397,22 +641,23 @@ export default function Transfer() {
           <div className="tasks-header">
             <div className="execution-modes">
               <div className="mode-tabs">
-                <button className={amountMode === 'fixed' ? 'active' : ''} onClick={() => setAmountMode('fixed')}><WalletIcon size={14}/> 固定</button>
-                <button className={amountMode === 'full' ? 'active' : ''} onClick={() => setAmountMode('full')}><CheckCircle size={14}/> 全额</button>
-                <button className={amountMode === 'random' ? 'active' : ''} onClick={() => setAmountMode('random')}><Dice5 size={14}/> 随机</button>
-                <button className={amountMode === 'remaining' ? 'active' : ''} onClick={() => setAmountMode('remaining')}><MinusCircle size={14}/> 剩余</button>
+                <button className={amountMode === 'fixed' ? 'active' : ''} onClick={() => setAmountMode('fixed')}><WalletIcon size={14} /> 固定</button>
+                <button className={amountMode === 'full' ? 'active' : ''} onClick={() => setAmountMode('full')}><CheckCircle size={14} /> 全额</button>
+                <button className={amountMode === 'random' ? 'active' : ''} onClick={() => setAmountMode('random')}><Dice5 size={14} /> 随机</button>
+                <button className={amountMode === 'remaining' ? 'active' : ''} onClick={() => setAmountMode('remaining')}><MinusCircle size={14} /> 剩余</button>
               </div>
-              
+
               <div className="mode-params">
                 {amountMode === 'fixed' && <input type="text" placeholder="金额" value={batchAmount} onChange={(e) => setBatchAmount(e.target.value)} />}
                 {amountMode === 'random' && (
                   <div className="range-box">
-                    <input type="text" placeholder="Min" value={randomRange.min} onChange={(e) => setRandomRange({...randomRange, min: e.target.value})} />
+                    <input type="text" placeholder="Min" value={randomRange.min} onChange={(e) => setRandomRange({ ...randomRange, min: e.target.value })} />
                     <span>-</span>
-                    <input type="text" placeholder="Max" value={randomRange.max} onChange={(e) => setRandomRange({...randomRange, max: e.target.value})} />
+                    <input type="text" placeholder="Max" value={randomRange.max} onChange={(e) => setRandomRange({ ...randomRange, max: e.target.value })} />
                   </div>
                 )}
                 {amountMode === 'remaining' && <input type="text" placeholder="保留" value={remainAmount} onChange={(e) => setRemainAmount(e.target.value)} />}
+
                 <div className="task-actions">
                   <button className="retry-btn" onClick={retryFailed} disabled={loading || !transferTasks.some(t => t.selected && t.status === 'error')}>
                     <RotateCcw size={16} /> 重试失败
@@ -432,9 +677,9 @@ export default function Transfer() {
                   <thead>
                     <tr>
                       <th width="40">
-                        <input 
-                          type="checkbox" 
-                          checked={transferTasks.length > 0 && transferTasks.every(t => t.selected)} 
+                        <input
+                          type="checkbox"
+                          checked={transferTasks.length > 0 && transferTasks.every(t => t.selected)}
                           onChange={(e) => toggleSelectAll(e.target.checked)}
                         />
                       </th>
@@ -450,23 +695,28 @@ export default function Transfer() {
                     {transferTasks.map((task, index) => (
                       <tr key={index} className={`task-row ${task.status} ${!task.selected ? 'unselected' : ''}`}>
                         <td>
-                          <input 
-                            type="checkbox" 
-                            checked={task.selected} 
-                            onChange={(e) => updateTask(index, { selected: e.target.checked })} 
+                          <input
+                            type="checkbox"
+                            checked={task.selected}
+                            onChange={(e) => updateTask(index, { selected: e.target.checked })}
                           />
                         </td>
                         <td>
                           <div className={`status-pill ${task.status}`}>
                             {task.status === 'processing' && <RefreshCw size={12} className="spin" />}
                             {task.status === 'success' && <CheckCircle size={12} />}
-                            {task.status === 'error' && <AlertCircle size={12} title={task.error} />}
+                            {task.status === 'error' && <AlertCircle size={12} />}
                             {task.status === 'pending' && '等待'}
                           </div>
+                          {task.status === 'error' && task.error && (
+                            <div className="error-reason-text" title={task.error}>
+                              {task.error}
+                            </div>
+                          )}
                         </td>
                         <td>
                           <div className="wallet-info">
-                            <span className="addr-mono">{task.from.slice(0,6)}...{task.from.slice(-4)}</span>
+                            <span className="addr-mono">{task.from.slice(0, 6)}...{task.from.slice(-4)}</span>
                             <span className="bal-text">
                               {parseFloat(task.balance).toFixed(4)} {tokenType === 'native' ? 'ETH' : tokenSymbol}
                             </span>
@@ -474,10 +724,10 @@ export default function Transfer() {
                         </td>
                         <td><ArrowRight size={14} className="sep-icon" /></td>
                         <td>
-                          <input 
-                            type="text" 
-                            className="inline-addr-input" 
-                            value={task.to} 
+                          <input
+                            type="text"
+                            className="inline-addr-input"
+                            value={task.to}
                             onChange={(e) => updateTask(index, { to: e.target.value })}
                             placeholder="目标地址"
                           />
