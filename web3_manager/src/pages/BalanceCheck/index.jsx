@@ -14,21 +14,7 @@ import { walletList, getWalletProjects } from '../../api/wallet';
 import { handleApiError } from '../../api/errorHandler';
 import './index.css';
 
-const COMMON_NETWORKS = [
-  { name: 'Ethereum Mainnet', chainId: 1, rpc: 'https://eth.llamarpc.com' },
-  { name: 'BSC Mainnet', chainId: 56, rpc: 'https://bsc-dataseed1.binance.org' },
-  { name: 'Polygon Mainnet', chainId: 137, rpc: 'https://polygon-rpc.com' },
-  { name: 'Arbitrum One', chainId: 42161, rpc: 'https://arb1.arbitrum.io/rpc' },
-  { name: 'Optimism', chainId: 10, rpc: 'https://mainnet.optimism.io' },
-  { name: 'Avalanche C-Chain', chainId: 43114, rpc: 'https://api.avax.network/ext/bc/C/rpc' },
-  { name: 'Base', chainId: 8453, rpc: 'https://base.llamarpc.com' },
-  { name: 'zkSync Era', chainId: 324, rpc: 'https://zksync-era.public.blastapi.io' },
-  { name: 'Linea', chainId: 59144, rpc: 'https://linea.blockpi.network/v1/rpc/public' },
-  { name: 'Mantle', chainId: 5000, rpc: 'https://rpc.mantle.xyz' },
-  { name: 'Scroll', chainId: 534352, rpc: 'https://rpc.scroll.io' },
-  { name: 'OP Mainnet', chainId: 10, rpc: 'https://mainnet.optimism.io' },
-  { name: 'Metis', chainId: 1088, rpc: 'https://andromeda.metis.io/?owner=1088' },
-];
+import { COMMON_NETWORKS } from '../../utils/constants';
 
 export default function BalanceCheck() {
   const [project, setProject] = useState('');
@@ -60,7 +46,11 @@ export default function BalanceCheck() {
     }
   }, [message]);
 
-  const getActiveRpc = () => isCustomRpc ? customRpc : network.rpc;
+  const getRpcList = () => {
+    if (isCustomRpc) return [customRpc];
+    const currentDef = COMMON_NETWORKS.find(n => n.chainId === network.chainId);
+    return currentDef?.rpcs || [network.rpc]; // Fallback to single if structured differently
+  };
 
   const loadProjects = async () => {
     const res = await getWalletProjects();
@@ -90,29 +80,40 @@ export default function BalanceCheck() {
       return;
     }
 
-    const rpcUrl = getActiveRpc();
-    if (!rpcUrl) {
+    const rpcList = getRpcList();
+    if (rpcList.length === 0 || !rpcList[0]) {
       setMessage({ type: 'error', text: '请选择网络或输入 RPC 地址' });
       return;
     }
 
     setLoading(true);
-    try {
-      const provider = new ethers.JsonRpcProvider(rpcUrl);
-      const abi = ["function symbol() view returns (string)", "function decimals() view returns (uint8)"];
-      const contract = new ethers.Contract(tokenAddress, abi, provider);
-      const [symbol, decimals] = await Promise.all([
-        contract.symbol(),
-        contract.decimals()
-      ]);
-      setTokenSymbol(symbol);
-      setTokenDecimals(Number(decimals));
-      setMessage({ type: 'success', text: `代币信息获取成功: ${symbol} (精度: ${decimals})` });
-    } catch (e) {
-      setMessage({ type: 'error', text: '获取代币信息失败，请检查合约地址和网络' });
-    } finally {
-      setLoading(false);
+    let lastError = null;
+    let success = false;
+
+    for (const rpcUrl of rpcList) {
+      try {
+        const provider = new ethers.JsonRpcProvider(rpcUrl);
+        const abi = ["function symbol() view returns (string)", "function decimals() view returns (uint8)"];
+        const contract = new ethers.Contract(tokenAddress, abi, provider);
+        const [symbol, decimals] = await Promise.all([
+          contract.symbol(),
+          contract.decimals()
+        ]);
+        setTokenSymbol(symbol);
+        setTokenDecimals(Number(decimals));
+        setMessage({ type: 'success', text: `代币信息获取成功: ${symbol} (精度: ${decimals})` });
+        success = true;
+        break; // 成功则退出循环
+      } catch (e) {
+        console.warn(`RPC ${rpcUrl} failed to fetch token info:`, e);
+        lastError = e;
+      }
     }
+
+    if (!success) {
+      setMessage({ type: 'error', text: '获取代币信息失败，所有 RPC 均不可用' });
+    }
+    setLoading(false);
   };
 
   const handleGenerateTasks = async () => {
@@ -193,28 +194,49 @@ export default function BalanceCheck() {
   };
 
   const fetchBalance = async (task) => {
-    const rpcUrl = getActiveRpc();
-    if (!rpcUrl) throw new Error('RPC 未配置');
+    const rpcList = getRpcList();
+    if (rpcList.length === 0) throw new Error('RPC 未配置');
 
-    const provider = new ethers.JsonRpcProvider(rpcUrl);
+    let lastError = null;
 
-    // 查询原生币余额
-    const nativeBalance = await provider.getBalance(task.address);
-    const nativeBalanceFormatted = ethers.formatEther(nativeBalance);
+    // 遍历所有 RPC 进行重试
+    for (const rpcUrl of rpcList) {
+      if (!rpcUrl) continue;
 
-    // 如果是 ERC20 代币，同时查询代币余额
-    let tokenBalance = null;
-    if (tokenType === 'erc20') {
-      if (!tokenAddress || !ethers.isAddress(tokenAddress)) {
-        throw new Error('代币地址无效');
+      try {
+        const provider = new ethers.JsonRpcProvider(rpcUrl);
+
+        // 查询原生币余额
+        const nativeBalance = await provider.getBalance(task.address);
+        const nativeBalanceFormatted = ethers.formatEther(nativeBalance);
+
+        // 如果是 ERC20 代币，同时查询代币余额
+        let tokenBalance = null;
+        if (tokenType === 'erc20') {
+          if (!tokenAddress || !ethers.isAddress(tokenAddress)) {
+            throw new Error('代币地址无效');
+          }
+          const abi = ["function balanceOf(address) view returns (uint256)"];
+          const contract = new ethers.Contract(tokenAddress, abi, provider);
+          const tokenBal = await contract.balanceOf(task.address);
+          tokenBalance = ethers.formatUnits(tokenBal, tokenDecimals);
+        }
+
+        // 成功则直接返回
+        return { nativeBalance: nativeBalanceFormatted, tokenBalance };
+      } catch (e) {
+        console.warn(`RPC ${rpcUrl} failed for ${task.address}:`, e);
+        lastError = e;
+        // 如果是特定错误（如地址无效），不需要切换RPC，直接抛出
+        if (e.message && (e.message.includes('代币地址无效') || e.message.includes('invalid address'))) {
+          throw e;
+        }
+        // 否则继续尝试下一个 RPC
       }
-      const abi = ["function balanceOf(address) view returns (uint256)"];
-      const contract = new ethers.Contract(tokenAddress, abi, provider);
-      const tokenBal = await contract.balanceOf(task.address);
-      tokenBalance = ethers.formatUnits(tokenBal, tokenDecimals);
     }
 
-    return { nativeBalance: nativeBalanceFormatted, tokenBalance };
+    // 所有 RPC 都失败
+    throw lastError || new Error('所有 RPC 节点均连接失败');
   };
 
   const handleStartQuery = async () => {
@@ -411,12 +433,18 @@ export default function BalanceCheck() {
           <div className="setup-grid">
             <div className="input-group full-row">
               <label>项目筛选（可选）</label>
-              <select value={project} onChange={(e) => setProject(e.target.value)}>
-                <option value="">不选择项目</option>
+              <input
+                type="text"
+                list="project-list"
+                value={project}
+                onChange={(e) => setProject(e.target.value)}
+                placeholder="输入或选择项目..."
+              />
+              <datalist id="project-list">
                 {projects.map(p => (
-                  <option key={p} value={p}>{p}</option>
+                  <option key={p} value={p} />
                 ))}
-              </select>
+              </datalist>
             </div>
             <div className="input-group full-row">
               <label>钱包地址（每行一个，可逗号分隔）</label>
