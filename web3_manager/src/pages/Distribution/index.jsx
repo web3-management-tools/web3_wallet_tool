@@ -404,7 +404,7 @@ export default function Distribution() {
     <div className="dist-page">
       <div className="transfer-header">
         <div className="title-section">
-          <h1>钱包对等分发 (1对多)</h1>
+          <h1>EVM钱包对等分发 (1对多)</h1>
           <p>支持多链原生币及 ERC20 代币的灵活分发</p>
         </div>
         <div className="header-btns">

@@ -67,7 +67,7 @@ function App() {
         // 根据实际情况，将阈值设置为 10GB
         const isLowQuota = quota < 10000000000;
         const usageRatio = usage && quota ? (usage / quota) : 0;
-        
+
         if (isLowQuota) {
           isIncognito = true;
           detectionMethods.push('quota');
@@ -161,8 +161,8 @@ function App() {
       icon: <Send size={20} />,
       children: [
         { id: 'mapping', label: '目标钱包配置', icon: <ArrowRightLeft size={18} /> },
-        { id: 'transfer', label: '多链转账', icon: <Send size={18} /> },
-        { id: 'distribution', label: '钱包分发', icon: <Share2 size={18} /> },
+        { id: 'transfer', label: 'EVM多链转账', icon: <Send size={18} /> },
+        { id: 'distribution', label: 'EVM钱包分发', icon: <Share2 size={18} /> },
       ]
     },
     {
@@ -203,8 +203,8 @@ function App() {
       setExpandedMenus([groupId]);
       return;
     }
-    setExpandedMenus(prev => 
-      prev.includes(groupId) 
+    setExpandedMenus(prev =>
+      prev.includes(groupId)
         ? prev.filter(id => id !== groupId)
         : [...prev, groupId]
     );
@@ -255,7 +255,7 @@ function App() {
         <nav className="sidebar-nav">
           {navGroups.map((group) => (
             <div key={group.id} className="nav-group">
-              <button 
+              <button
                 className={`nav-group-header ${expandedMenus.includes(group.id) ? 'expanded' : ''}`}
                 onClick={() => toggleGroup(group.id)}
               >
@@ -269,7 +269,7 @@ function App() {
                   </>
                 )}
               </button>
-              
+
               {expandedMenus.includes(group.id) && !sidebarCollapsed && (
                 <div className="nav-group-children">
                   {group.children.map(child => (

@@ -552,7 +552,7 @@ export default function Transfer() {
     <div className="transfer-page">
       <div className="transfer-header">
         <div className="title-section">
-          <h1>批量转账管理</h1>
+          <h1>EVM批量转账管理</h1>
           <p>支持多链原生币及 ERC20 代币的一对多灵活分发</p>
         </div>
         <div className="header-btns">
