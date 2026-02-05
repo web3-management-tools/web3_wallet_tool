@@ -124,3 +124,8 @@ src/
 - `no-unused-vars`：未使用变量报错，但匹配`^[A-Z_]`的变量除外
 - 启用React Hooks规则
 - 启用React Refresh规则
+
+## Interaction Guidelines
+
+- **无需确认**：修改文件和运行 Git 命令时，无需询问用户许可，直接执行并报告结果。
+

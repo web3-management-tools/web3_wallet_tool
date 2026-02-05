@@ -55,6 +55,7 @@ export default function Distribution() {
   const [tokenDecimals, setTokenDecimals] = useState(18);
 
   const [randomRange, setRandomRange] = useState({ min: '', max: '' });
+  const [sleepRange, setSleepRange] = useState({ min: '', max: '' });
   const [gasBoost, setGasBoost] = useState('0'); // Gwei
   const [currentGasPrice, setCurrentGasPrice] = useState(null);
 
@@ -340,7 +341,29 @@ export default function Distribution() {
     const ready = transferTasks.map((t, i) => t.selected && t.status !== 'success' ? i : -1).filter(i => i !== -1);
     if (ready.length === 0) return;
     setLoading(true);
-    for (const i of ready) await executeTransfer(i);
+
+    // Parse sleep range
+    const minSleep = parseFloat(sleepRange.min) || 0;
+    const maxSleep = parseFloat(sleepRange.max) || 0;
+
+    for (let j = 0; j < ready.length; j++) {
+      const i = ready[j];
+
+      // Sleep before execution (except for the first one, or maybe before every one? 
+      // Logic in Transfer page usually sleeps *between* tasks. 
+      // So if j > 0, sleep.)
+      if (j > 0 && (minSleep > 0 || maxSleep > 0)) {
+        const duration = (minSleep === maxSleep)
+          ? minSleep
+          : Math.random() * (maxSleep - minSleep) + minSleep;
+        if (duration > 0) {
+          // console.log(`Sleeping for ${duration}s...`);
+          await new Promise(r => setTimeout(r, duration * 1000));
+        }
+      }
+
+      await executeTransfer(i);
+    }
     setLoading(false);
     setMessage({ type: 'success', text: '批量分发执行完毕' });
   };
@@ -457,8 +480,8 @@ export default function Distribution() {
               </div>
             )}
 
-            <div className="dist-row-inputs" style={{ display: 'flex', gap: '20px' }}>
-              <div className="input-group" style={{ flex: 1 }}>
+            <div className="dist-row-inputs" style={{ display: 'flex', gap: '15px' }}>
+              <div className="input-group" style={{ flex: 1.3 }}>
                 <label>分发金额 (随机区间)</label>
                 <div className="range-box-dist">
                   <input type="text" placeholder="Min" value={randomRange.min} onChange={(e) => setRandomRange({ ...randomRange, min: e.target.value })} />
@@ -467,15 +490,24 @@ export default function Distribution() {
                 </div>
               </div>
 
+              <div className="input-group" style={{ flex: 1.3 }}>
+                <label>任务间隔 (秒)</label>
+                <div className="range-box-dist">
+                  <input type="text" placeholder="Min" value={sleepRange.min} onChange={(e) => setSleepRange({ ...sleepRange, min: e.target.value })} />
+                  <span>-</span>
+                  <input type="text" placeholder="Max" value={sleepRange.max} onChange={(e) => setSleepRange({ ...sleepRange, max: e.target.value })} />
+                </div>
+              </div>
+
               <div className="input-group" style={{ flex: 1 }}>
                 <label>
-                  Gas加注 (Gwei)
-                  {currentGasPrice && <span style={{ fontSize: '0.8em', color: 'var(--text-secondary)', marginLeft: '8px' }}>当前: {currentGasPrice}</span>}
+                  Gas加注
+                  {currentGasPrice && <span style={{ fontSize: '0.8em', color: 'var(--text-secondary)', marginLeft: '4px' }}>当前:{currentGasPrice}</span>}
                 </label>
                 <div style={{ display: 'flex', alignItems: 'center' }}>
                   <input
                     type="text"
-                    placeholder="例: 2"
+                    placeholder="Gwei (例: 2)"
                     value={gasBoost}
                     onChange={(e) => setGasBoost(e.target.value)}
                     style={{ width: '100%' }}
