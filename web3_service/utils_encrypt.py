@@ -118,34 +118,42 @@ def aes_encrypt(raw, password):
     # 计算密钥
     key = hashlib.sha256(password.encode()).digest()
 
-    # 加密
-    iv = b'0000000000000000'
+    # 加密（使用随机 IV 提升安全性）
+    iv = os.urandom(16)
     cipher = AES.new(key, AES.MODE_CBC, iv)
     encrypted = cipher.encrypt(raw.encode('utf-8'))
 
-    # base64编码并返回结果
-    return base64.b64encode(encrypted).decode('utf-8')
+    # IV + 密文一起 base64 编码
+    return base64.b64encode(iv + encrypted).decode('utf-8')
 
 
 # 解密
 def aes_decrypt(encrypted, password):
     # base64解码
-    encrypted = base64.b64decode(encrypted)
+    raw = base64.b64decode(encrypted)
 
     # 计算密钥
     key = hashlib.sha256(password.encode()).digest()
 
-    # 解密
-    iv = b'0000000000000000'
-    cipher = AES.new(key, AES.MODE_CBC, iv)
-    decrypted = cipher.decrypt(encrypted).decode('utf-8')
+    # 兼容新旧格式：旧格式无 IV 前缀（16字节固定 IV），新格式前 16 字节为 IV
+    # 判断方式：尝试用前 16 字节作为 IV 解密，如果失败则用固定 IV
+    LEGACY_IV = b'0000000000000000'
 
-    # 去除填充
-    unpad = lambda s: s[:-ord(s[-1])]
-    decrypted = unpad(decrypted)
+    def try_decrypt(iv, data):
+        cipher = AES.new(key, AES.MODE_CBC, iv)
+        decrypted = cipher.decrypt(data).decode('utf-8')
+        unpad = lambda s: s[:-ord(s[-1])]
+        return unpad(decrypted)
 
-    # 返回解密结果
-    return decrypted
+    # 优先尝试新格式（前 16 字节为随机 IV）
+    if len(raw) > 16:
+        try:
+            return try_decrypt(raw[:16], raw[16:])
+        except Exception:
+            pass
+
+    # 回退到旧格式（固定 IV）
+    return try_decrypt(LEGACY_IV, raw)
 
 
 # 加密
