@@ -28,13 +28,32 @@ if sys.platform == 'win32':
     logger.addHandler(handler)
 
 
+_engine = None
+_Session = None
+
+
+def _get_engine():
+    '''获取数据库引擎（单例）'''
+    global _engine
+    if _engine is None:
+        _engine = create_engine(DB_URI, pool_pre_ping=True, pool_recycle=3600)
+        db_model.Base.metadata.create_all(_engine)
+    return _engine
+
+
+def _get_session():
+    '''获取数据库 session（使用单例 SessionFactory）'''
+    global _Session
+    if _Session is None:
+        _Session = sessionmaker(bind=_get_engine())
+    return _Session()
+
+
 def getDbEngine():
     '''
-    数据库链接
+    数据库链接（保留兼容，内部使用单例）
     '''
-    engine = create_engine(DB_URI)  # , echo=True
-    db_model.Base.metadata.create_all(engine)
-    return engine
+    return _get_engine()
 
 
 def queryAllProjectList():
@@ -43,7 +62,7 @@ def queryAllProjectList():
     :return:
     '''
     logger.debug('[queryAllProjectList] 开始查询所有项目')
-    session = sessionmaker(getDbEngine())()
+    session = _get_session()
     result = session.query(Wallet.project).group_by(Wallet.project).all()
     session.close()
     logger.debug(f'[queryAllProjectList] 查询到 {len(result)} 个项目')
@@ -57,7 +76,7 @@ def queryProjectLastIndex(project):
     :return:
     '''
     logger.debug(f'[queryProjectLastIndex] 查询项目 {project} 的最后索引')
-    session = sessionmaker(getDbEngine())()
+    session = _get_session()
     try:
         result = session.query(Wallet.index).filter(
             Wallet.project == project
@@ -77,7 +96,7 @@ def queryWalletByAddressOrProject(address, project):
     :return:
     '''
     logger.debug(f'[queryWalletByAddressOrProject] address={address}, project={project}')
-    session = sessionmaker(getDbEngine())()
+    session = _get_session()
     result = session.query(Wallet).filter(or_(Wallet.address == address, Wallet.project == project)).all()
     session.close()
     logger.debug(f'[queryWalletByAddressOrProject] 查询到 {len(result)} 个钱包')
@@ -89,7 +108,7 @@ def queryWalletByAddress(address):
     根据地址查询钱包信息
     '''
     logger.debug(f'[queryWalletByAddress] 查询地址 {address}')
-    session = sessionmaker(getDbEngine())()
+    session = _get_session()
     result = session.query(Wallet).filter(Wallet.address == address).limit(1).all()
     session.close()
     if len(result) > 0:
@@ -107,7 +126,7 @@ def checkWalletIsExist(address, project):
     :return:
     '''
     logger.debug(f'[checkWalletIsExist] 检查钱包是否存在: address={address}, project={project}')
-    session = sessionmaker(getDbEngine())()
+    session = _get_session()
     result = session.query(Wallet).filter(Wallet.address == address).filter(
         Wallet.project == project).limit(1).all()
     session.close()
@@ -130,7 +149,7 @@ def batchQueryExistingAddresses(project, addresses):
         return set()
     
     logger.debug(f'[batchQueryExistingAddresses] 批量查询 {len(addresses)} 个地址，项目={project}')
-    session = sessionmaker(getDbEngine())()
+    session = _get_session()
     try:
         result = session.query(Wallet.address).filter(
             Wallet.project == project,
@@ -154,7 +173,7 @@ def batchInsertWallets(wallet_data_list):
         return 0
     
     logger.info(f'[batchInsertWallets] 批量插入 {len(wallet_data_list)} 个钱包')
-    session = sessionmaker(getDbEngine())()
+    session = _get_session()
     try:
         # 使用 bulk_insert_mappings 批量插入
         session.bulk_insert_mappings(Wallet, wallet_data_list)
@@ -185,7 +204,7 @@ def insertWallet(index, address, private, phrase, project, remark, public=None):
     if db_wallet is not None:
         logger.debug(f'[insertWallet] 钱包已存在，跳过')
         return
-    session = sessionmaker(getDbEngine())()
+    session = _get_session()
     try:
         wallet = Wallet(
             index=index,
@@ -219,7 +238,7 @@ def batchInsertWalletMapping(mappingList, project, remark):
         return 0
     
     logger.info(f'[batchInsertWalletMapping] 批量导入 {len(mappingList)} 个映射')
-    session = sessionmaker(getDbEngine())()
+    session = _get_session()
     now = datetime.now()
     
     try:
@@ -297,7 +316,7 @@ def queryWalletMappingBySourceAddresses(sourceAddresses):
         return []
     
     logger.debug(f'[queryWalletMappingBySourceAddresses] 批量查询 {len(sourceAddresses)} 个映射')
-    session = sessionmaker(getDbEngine())()
+    session = _get_session()
     result = session.query(WalletMapping).filter(
         WalletMapping.source_address.in_(sourceAddresses)
     ).all()
@@ -323,7 +342,7 @@ def queryWalletMappingBySourceAddress(sourceAddress):
     :return: {"sourceAddress": "xxx", "targetAddress": "xxx"} or None
     '''
     logger.debug(f'[queryWalletMappingBySourceAddress] 查询 {sourceAddress}')
-    session = sessionmaker(getDbEngine())()
+    session = _get_session()
     result = session.query(WalletMapping).filter(
         WalletMapping.source_address == sourceAddress
     ).first()
@@ -347,7 +366,7 @@ def queryProjectStatistics():
     :return: [{"project": "项目名", "count": 钱包数量}, ...] 和总钱包数
     '''
     logger.debug('[queryProjectStatistics] 查询项目统计信息')
-    session = sessionmaker(getDbEngine())()
+    session = _get_session()
     try:
         from sqlalchemy import func
 
@@ -381,7 +400,7 @@ def queryAllExchangeNames():
     :return: 交易所信息列表，包含 name 和 platform
     '''
     logger.debug('[queryAllExchangeNames] 开始查询所有交易所名称')
-    session = sessionmaker(getDbEngine())()
+    session = _get_session()
     try:
         result = session.query(ExchangeInfo.name, ExchangeInfo.platform).filter(
             ExchangeInfo.name.isnot(None)
@@ -400,7 +419,7 @@ def queryExchangeByName(name):
     :return: 交易所信息或None
     '''
     logger.debug(f'[queryExchangeByName] 查询交易所: name={name}')
-    session = sessionmaker(getDbEngine())()
+    session = _get_session()
     try:
         result = session.query(ExchangeInfo).filter(
             ExchangeInfo.name == name
@@ -434,7 +453,7 @@ def insertExchange(platform, apikey, secret, password, ip, name):
     :return: 新增的交易所信息
     '''
     logger.debug(f'[insertExchange] 新增交易所: name={name}, platform={platform}')
-    session = sessionmaker(getDbEngine())()
+    session = _get_session()
     try:
         exchange = ExchangeInfo(
             platform=platform,
@@ -476,7 +495,7 @@ def updateExchange(name, platform, apikey, secret, password, ip):
     :return: 更新的记录数
     '''
     logger.debug(f'[updateExchange] 更新交易所: name={name}')
-    session = sessionmaker(getDbEngine())()
+    session = _get_session()
     try:
         result = session.query(ExchangeInfo).filter(
             ExchangeInfo.name == name
@@ -515,7 +534,7 @@ def deleteExchange(name):
     :return: 删除的记录数
     '''
     logger.debug(f'[deleteExchange] 删除交易所: name={name}')
-    session = sessionmaker(getDbEngine())()
+    session = _get_session()
     try:
         result = session.query(ExchangeInfo).filter(
             ExchangeInfo.name == name
