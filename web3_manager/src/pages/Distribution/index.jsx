@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import {
   Send,
   Settings,
@@ -13,11 +13,12 @@ import {
   RotateCcw,
   Key,
   UserCheck,
-  Coins
+  Coins,
+  FolderKanban
 } from 'lucide-react';
 import { ethers } from 'ethers';
 import * as XLSX from 'xlsx';
-import { walletList } from '../../api/wallet';
+import { walletList, getWalletProjects } from '../../api/wallet';
 import { decryptPrivateKey } from '../../utils/crypto';
 import PasswordInput from '../../components/PasswordInput';
 import './index.css';
@@ -43,7 +44,12 @@ export default function Distribution() {
   const [sourceAddress, setSourceInput] = useState('');
   const [targetInput, setTargetInput] = useState('');
   const [sourceInfo, setSourceInfo] = useState(null);
-
+  
+  // 项目选择相关状态
+  const [projects, setProjects] = useState([]);
+  const [selectedProject, setSelectedProject] = useState('');
+  const [loadingAddresses, setLoadingAddresses] = useState(false);
+  
   const [network, setNetwork] = useState(COMMON_NETWORKS[0]);
   const [customRpc, setCustomRpc] = useState('');
   const [isCustomRpc, setIsCustomRpc] = useState(false);
@@ -71,12 +77,52 @@ export default function Distribution() {
     }
   }, [message]);
 
-  const getRpcList = () => {
+  // 加载项目列表
+  useEffect(() => {
+    const loadProjects = async () => {
+      try {
+        const res = await getWalletProjects();
+        if (res.success) {
+          setProjects(res.data || []);
+        }
+      } catch (error) {
+        console.error('获取项目列表失败:', error);
+      }
+    };
+    loadProjects();
+  }, []);
+
+  const getRpcList = useCallback(() => {
     if (isCustomRpc) return [customRpc];
     const currentDef = COMMON_NETWORKS.find(n => n.chainId === network.chainId);
     return currentDef?.rpcs || [network.rpc];
+  }, [isCustomRpc, customRpc, network]);
+  
+  const getActiveRpc = useCallback(() => getRpcList()[0], [getRpcList]);
+
+  // 从项目获取钱包地址作为目标地址
+  const handleGetAddressesFromProject = async () => {
+    if (!selectedProject) {
+      setMessage({ type: 'error', text: '请先选择项目' });
+      return;
+    }
+    setLoadingAddresses(true);
+    try {
+      const walletRes = await walletList({ project: selectedProject, pwd: '1' });
+      if (!walletRes.success || !walletRes.data || walletRes.data.length === 0) {
+        setMessage({ type: 'error', text: '该项目下没有钱包地址' });
+        setLoadingAddresses(false);
+        return;
+      }
+      const targetAddresses = walletRes.data.map(w => w.address);
+      setTargetInput(targetAddresses.join('\n'));
+      setMessage({ type: 'success', text: `成功获取 ${targetAddresses.length} 个目标地址` });
+    } catch (error) {
+      setMessage({ type: 'error', text: '获取目标地址失败: ' + error.message });
+    } finally {
+      setLoadingAddresses(false);
+    }
   };
-  const getActiveRpc = () => getRpcList()[0];
 
   // 自动刷新 Gas
   useEffect(() => {
@@ -152,7 +198,7 @@ export default function Distribution() {
               validPk = pk;
               break; // 找到第一个有效的就停止
             }
-          } catch (e) {
+          } catch {
             continue; // 解密失败则尝试下一个
           }
         }
@@ -216,7 +262,7 @@ export default function Distribution() {
     try {
       toAddr = ethers.getAddress(task.to);
       if (tokenType === 'erc20') tokenAddr = ethers.getAddress(tokenAddress);
-    } catch (e) {
+    } catch {
       // Fallback
       toAddr = task.to;
       tokenAddr = tokenAddress;
@@ -320,7 +366,7 @@ export default function Distribution() {
           const timeoutPromise = new Promise((_, reject) => setTimeout(() => reject(new Error('Wait Timeout')), 120000));
           await Promise.race([waitPromise, timeoutPromise]);
           updateTask(index, { status: 'success' });
-        } catch (waitErr) {
+        } catch {
           updateTask(index, { status: 'success', error: '已发送(确认超时)' });
         }
         return; // Success, exit retry loop
@@ -524,6 +570,32 @@ export default function Distribution() {
           <div className="card-tag">STEP 3</div>
           <h3><FileText size={18} /> 批量录入目标地址</h3>
           <div className="target-form-body">
+            <div className="project-select-row">
+              <div className="input-group flex-1">
+                <label><FolderKanban size={14} /> 从项目获取钱包地址</label>
+                <select 
+                  value={selectedProject} 
+                  onChange={(e) => setSelectedProject(e.target.value)}
+                  className="project-select"
+                >
+                  <option value="">请选择项目</option>
+                  {projects.map(p => (
+                    <option key={p} value={p}>{p}</option>
+                  ))}
+                </select>
+              </div>
+              <button 
+                className="get-addresses-btn" 
+                onClick={handleGetAddressesFromProject}
+                disabled={!selectedProject || loadingAddresses}
+              >
+                {loadingAddresses ? <RefreshCw size={16} className="spin" /> : <ArrowRight size={16} />}
+                获取目标地址
+              </button>
+            </div>
+            <div className="divider-text">
+              <span>或手动输入</span>
+            </div>
             <textarea
               value={targetInput}
               onChange={(e) => setTargetInput(e.target.value)}
