@@ -501,7 +501,7 @@ export default function Distribution() {
 
               <div className="input-group" style={{ flex: 1 }}>
                 <label>
-                  Gas加注
+                  <span style={{ fontSize: '0.85em' }}>Gas加注</span>
                   {currentGasPrice && <span style={{ fontSize: '0.8em', color: 'var(--text-secondary)', marginLeft: '4px' }}>当前:{currentGasPrice}</span>}
                 </label>
                 <div style={{ display: 'flex', alignItems: 'center' }}>
