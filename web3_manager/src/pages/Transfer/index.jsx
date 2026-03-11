@@ -51,7 +51,16 @@ export default function Transfer() {
   const [fetchingBalances, setFetchingBalances] = useState(false);
   const [message, setMessage] = useState(null);
 
-  useEffect(() => { loadProjects(); }, []);
+  useEffect(() => {
+    loadProjects();
+    const handleClickOutside = (e) => {
+      if (!e.target.closest('.project-autocomplete-container')) {
+        setShowProjectDropdown(false);
+      }
+    };
+    document.addEventListener('click', handleClickOutside);
+    return () => document.removeEventListener('click', handleClickOutside);
+  }, []);
 
   // 消息自动消失逻辑
   useEffect(() => {
@@ -559,29 +568,28 @@ export default function Transfer() {
           <div className="setup-grid">
             <div className="input-group">
               <label>源项目</label>
-              <div className="autocomplete-input">
+              <div className="project-autocomplete-container">
                 <input
                   type="text"
                   placeholder="输入项目名称搜索..."
                   value={projectInput}
                   onChange={(e) => handleProjectInputChange(e.target.value)}
                   onFocus={() => setShowProjectDropdown(true)}
-                  onBlur={() => setTimeout(() => setShowProjectDropdown(false), 200)}
                 />
                 {showProjectDropdown && (
-                  <div className="dropdown-list">
+                  <div className="autocomplete-dropdown">
                     {getFilteredProjects().length > 0 ? (
                       getFilteredProjects().map(p => (
                         <div
                           key={p}
-                          className="dropdown-item"
+                          className="autocomplete-item"
                           onClick={() => handleProjectSelect(p)}
                         >
                           {p}
                         </div>
                       ))
                     ) : (
-                      <div className="dropdown-item no-result">无匹配项目</div>
+                      <div className="autocomplete-item no-result" style={{ cursor: 'default', color: 'var(--text-muted)' }}>无匹配项目</div>
                     )}
                   </div>
                 )}

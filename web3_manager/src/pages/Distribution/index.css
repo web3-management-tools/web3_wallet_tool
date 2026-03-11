@@ -64,22 +64,25 @@
   /* 标签与输入框更贴近 */
 }
 
+/* Copy styling from WalletList/index.css input-group */
 .input-group label {
-  font-size: 0.75rem;
+  font-size: 13px;
   font-weight: 700;
   color: var(--text-secondary);
-  text-transform: uppercase;
+  text-transform: none;
+  /* remove Uppercase */
 }
 
 .input-group input,
 .input-group select {
-  height: 38px;
-  /* 略微减小高度 */
-  padding: 0 10px;
+  height: 42px;
+  /* Match WalletList height */
+  padding: 0 12px;
   background: var(--bg-main);
   border: 1px solid var(--border-color);
   border-radius: var(--radius-sm);
-  font-size: 0.875rem;
+  font-size: 14px;
+  /* Match WalletList font size */
 }
 
 .verify-btn {

@@ -125,23 +125,37 @@
   grid-column: 1 / -1;
 }
 
+/* Copy styling from WalletList/index.css input-group */
 .input-group label {
   font-size: 13px;
-  font-weight: 500;
+  font-weight: 700;
   color: var(--text-secondary);
 }
 
 .input-group input,
 .input-group select,
 .input-group textarea {
-  padding: 10px 12px;
+  padding: 0 12px;
   background: var(--bg-main);
   border: 1px solid var(--border-color);
-  border-radius: var(--radius-md);
+  border-radius: var(--radius-sm);
+  /* Use sm */
   color: var(--text-main);
   font-size: 14px;
   transition: var(--transition);
   box-sizing: border-box;
+}
+
+.input-group input,
+.input-group select {
+  height: 42px;
+  /* Set fixed height for inputs and selects */
+}
+
+/* textarea overrides */
+.input-group textarea {
+  padding: 10px 12px;
+  height: auto;
 }
 
 .input-group select {
@@ -604,6 +618,7 @@
     transform: translateX(100%);
     opacity: 0;
   }
+
   to {
     transform: translateX(0);
     opacity: 1;
@@ -618,6 +633,7 @@
   from {
     transform: rotate(0deg);
   }
+
   to {
     transform: rotate(360deg);
   }
@@ -682,4 +698,51 @@
   .reset-btn {
     flex: 1;
   }
+}
+
+/* Project Autocomplete (Copied from WalletList) */
+.project-autocomplete-container {
+  position: relative;
+  width: 100%;
+}
+
+.project-autocomplete-container input {
+  width: 100%;
+  box-sizing: border-box;
+}
+
+.autocomplete-dropdown {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  right: 0;
+  background: white;
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-sm);
+  box-shadow: var(--shadow-lg);
+  max-height: 200px;
+  overflow-y: auto;
+  z-index: 100;
+  margin-top: 4px;
+}
+
+.autocomplete-item {
+  padding: 10px 12px;
+  cursor: pointer;
+  font-size: 14px;
+  color: var(--text-main);
+  transition: var(--transition);
+}
+
+.autocomplete-item:hover {
+  background: var(--bg-main);
+  color: var(--primary-color);
+}
+
+.autocomplete-item:first-child {
+  border-radius: var(--radius-sm) var(--radius-sm) 0 0;
+}
+
+.autocomplete-item:last-child {
+  border-radius: 0 0 var(--radius-sm) var(--radius-sm);
 }

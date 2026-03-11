@@ -16,9 +16,10 @@ import {
   ArrowRightLeft,
   FolderKanban,
   Building2,
-  Share2,
   ArrowUpRight,
-  Coins
+  Coins,
+  Zap,
+  Share2
 } from 'lucide-react';
 import WalletList from './pages/WalletList';
 import CreateWallet from './pages/CreateWallet';
@@ -30,6 +31,7 @@ import ProjectInfo from './pages/ProjectInfo';
 import Exchange from './pages/Exchange';
 import SecurityNotice from './pages/SecurityNotice';
 import BalanceCheck from './pages/BalanceCheck';
+import UniversalInteraction from './pages/UniversalInteraction';
 import './App.css';
 
 function App() {
@@ -163,6 +165,7 @@ function App() {
         { id: 'mapping', label: '目标钱包配置', icon: <ArrowRightLeft size={18} /> },
         { id: 'transfer', label: 'EVM多链转账', icon: <Send size={18} /> },
         { id: 'distribution', label: 'EVM钱包分发', icon: <Share2 size={18} /> },
+        { id: 'universal-interaction', label: '万能上链', icon: <Zap size={18} /> },
       ]
     },
     {
@@ -188,6 +191,7 @@ function App() {
       case 'exchange': return <Exchange />;
       case 'exchange-withdraw': return <Exchange initialTab="withdraw" />;
       case 'balance-check': return <BalanceCheck />;
+      case 'universal-interaction': return <UniversalInteraction />;
       default: return <WalletList />;
     }
   };

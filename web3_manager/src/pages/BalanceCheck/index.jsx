@@ -33,9 +33,17 @@ export default function BalanceCheck() {
   const [querying, setQuerying] = useState(false);
   const [progress, setProgress] = useState({ current: 0, total: 0 });
   const [message, setMessage] = useState(null);
+  const [showProjectDropdown, setShowProjectDropdown] = useState(false);
 
   useEffect(() => {
     loadProjects();
+    const handleClickOutside = (e) => {
+      if (!e.target.closest('.project-autocomplete-container')) {
+        setShowProjectDropdown(false);
+      }
+    };
+    document.addEventListener('click', handleClickOutside);
+    return () => document.removeEventListener('click', handleClickOutside);
   }, []);
 
   // 消息自动消失
@@ -433,18 +441,38 @@ export default function BalanceCheck() {
           <div className="setup-grid">
             <div className="input-group full-row">
               <label>项目筛选（可选）</label>
-              <input
-                type="text"
-                list="project-list"
-                value={project}
-                onChange={(e) => setProject(e.target.value)}
-                placeholder="输入或选择项目..."
-              />
-              <datalist id="project-list">
-                {projects.map(p => (
-                  <option key={p} value={p} />
-                ))}
-              </datalist>
+              <div className="project-autocomplete-container">
+                <input
+                  type="text"
+                  value={project}
+                  onChange={(e) => {
+                    setProject(e.target.value);
+                    setShowProjectDropdown(true);
+                  }}
+                  onFocus={() => setShowProjectDropdown(true)}
+                  placeholder="输入或选择项目..."
+                />
+                {showProjectDropdown && (
+                  <div className="autocomplete-dropdown">
+                    {projects.filter(p => !project || p.toLowerCase().includes(project.toLowerCase())).length > 0 ? (
+                      projects.filter(p => !project || p.toLowerCase().includes(project.toLowerCase())).map((p, index) => (
+                        <div
+                          key={`${p}-${index}`}
+                          className="autocomplete-item"
+                          onClick={() => {
+                            setProject(p);
+                            setShowProjectDropdown(false);
+                          }}
+                        >
+                          {p}
+                        </div>
+                      ))
+                    ) : (
+                      <div className="autocomplete-item" style={{ cursor: 'default', color: 'var(--text-muted)' }}>无匹配项目</div>
+                    )}
+                  </div>
+                )}
+              </div>
             </div>
             <div className="input-group full-row">
               <label>钱包地址（每行一个，可逗号分隔）</label>

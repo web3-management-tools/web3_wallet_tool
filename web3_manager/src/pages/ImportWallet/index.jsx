@@ -26,10 +26,18 @@ export default function ImportWallet() {
   const [walletData, setWalletData] = useState('');
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState(null);
+  const [showProjectDropdown, setShowProjectDropdown] = useState(false);
   const fileInputRef = useRef(null);
 
   useEffect(() => {
     loadProjects();
+    const handleClickOutside = (e) => {
+      if (!e.target.closest('.project-autocomplete-container')) {
+        setShowProjectDropdown(false);
+      }
+    };
+    document.addEventListener('click', handleClickOutside);
+    return () => document.removeEventListener('click', handleClickOutside);
   }, []);
 
   const loadProjects = async () => {
@@ -186,12 +194,38 @@ export default function ImportWallet() {
             <div className="setup-grid-vertical">
               <div className="input-group">
                 <label>所属项目</label>
-                <input type="text" value={project} onChange={(e) => setProject(e.target.value)} placeholder="输入或选择项目" list="project-list" />
-                <datalist id="project-list">
-                  {projects.map((p) => (
-                    <option key={p} value={p}>{p}</option>
-                  ))}
-                </datalist>
+                <div className="project-autocomplete-container">
+                  <input
+                    type="text"
+                    value={project}
+                    onChange={(e) => {
+                      setProject(e.target.value);
+                      setShowProjectDropdown(true);
+                    }}
+                    onFocus={() => setShowProjectDropdown(true)}
+                    placeholder="输入或选择项目"
+                  />
+                  {showProjectDropdown && (
+                    <div className="autocomplete-dropdown">
+                      {projects.filter(p => !project || p.toLowerCase().includes(project.toLowerCase())).length > 0 ? (
+                        projects.filter(p => !project || p.toLowerCase().includes(project.toLowerCase())).map((p, index) => (
+                          <div
+                            key={`${p}-${index}`}
+                            className="autocomplete-item"
+                            onClick={() => {
+                              setProject(p);
+                              setShowProjectDropdown(false);
+                            }}
+                          >
+                            {p}
+                          </div>
+                        ))
+                      ) : (
+                        <div className="autocomplete-item" style={{ cursor: 'default', color: 'var(--text-muted)' }}>无匹配项目</div>
+                      )}
+                    </div>
+                  )}
+                </div>
               </div>
               <div className="input-group">
                 <label>备注信息</label>

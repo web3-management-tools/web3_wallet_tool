@@ -67,7 +67,7 @@
 }
 
 .input-group label {
-  font-size: 0.8125rem;
+  font-size: 13px;
   font-weight: 700;
   color: var(--text-secondary);
 }
@@ -77,8 +77,57 @@
   padding: 0 12px;
   background: var(--bg-main);
   border: 1px solid var(--border-color);
-  border-radius: var(--radius-md);
+  border-radius: var(--radius-sm);
   transition: var(--transition);
+  width: 100%;
+  box-sizing: border-box;
+}
+
+/* Project Autocomplete (Copied from WalletList) */
+.project-autocomplete-container {
+  position: relative;
+  width: 100%;
+}
+
+.project-autocomplete-container input {
+  width: 100%;
+  box-sizing: border-box;
+}
+
+.autocomplete-dropdown {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  right: 0;
+  background: white;
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-sm);
+  box-shadow: var(--shadow-lg);
+  max-height: 200px;
+  overflow-y: auto;
+  z-index: 100;
+  margin-top: 4px;
+}
+
+.autocomplete-item {
+  padding: 10px 12px;
+  cursor: pointer;
+  font-size: 14px;
+  color: var(--text-main);
+  transition: var(--transition);
+}
+
+.autocomplete-item:hover {
+  background: var(--bg-main);
+  color: var(--primary-color);
+}
+
+.autocomplete-item:first-child {
+  border-radius: var(--radius-sm) var(--radius-sm) 0 0;
+}
+
+.autocomplete-item:last-child {
+  border-radius: 0 0 var(--radius-sm) var(--radius-sm);
 }
 
 .input-group input:focus {
@@ -229,5 +278,7 @@
 }
 
 @media (max-width: 900px) {
-  .import-grid { grid-template-columns: 1fr; }
+  .import-grid {
+    grid-template-columns: 1fr;
+  }
 }
