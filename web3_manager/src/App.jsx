@@ -29,13 +29,11 @@ import Transfer from './pages/Transfer';
 import Distribution from './pages/Distribution';
 import ProjectInfo from './pages/ProjectInfo';
 import Exchange from './pages/Exchange';
-import SecurityNotice from './pages/SecurityNotice';
 import BalanceCheck from './pages/BalanceCheck';
 import UniversalInteraction from './pages/UniversalInteraction';
 import './App.css';
 
 function App() {
-  const [isPrivate, setIsPrivate] = useState(null); // null: checking, true: private, false: normal
   const [currentPage, setCurrentPage] = useState('project-info');
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
@@ -43,8 +41,6 @@ function App() {
   const [selectedProject, setSelectedProject] = useState(null);
 
   useEffect(() => {
-    detectIncognito();
-
     // 监听从 ProjectInfo 发来的导航事件
     const handleNavigate = (event) => {
       if (event.detail && event.detail.project) {
@@ -57,7 +53,7 @@ function App() {
     return () => window.removeEventListener('navigate-to-wallet-list', handleNavigate);
   }, []);
 
-  const detectIncognito = async () => {
+  /* async function detectIncognito() {
     let isIncognito = false;
     let detectionMethods = [];
 
@@ -80,7 +76,7 @@ function App() {
       // 2. Chrome & Edge FileSystem API detection (辅助验证)
       if (!isIncognito && window.webkitRequestFileSystem) {
         try {
-          await new Promise((resolve, reject) => {
+          await new Promise((resolve) => {
             window.webkitRequestFileSystem(
               window.TEMPORARY,
               1,
@@ -93,7 +89,7 @@ function App() {
               detectionMethods.push('filesystem');
             }
           });
-        } catch (e) {
+        } catch {
           // FileSystem API 失败，可能是因为无痕模式
           isIncognito = true;
           detectionMethods.push('filesystem-error');
@@ -118,7 +114,7 @@ function App() {
         try {
           window.openDatabase(null, null, null, null);
           isIncognito = false;
-        } catch (e) {
+        } catch {
           isIncognito = true;
           detectionMethods.push('safari-db');
         }
@@ -129,7 +125,7 @@ function App() {
         try {
           localStorage.setItem('test_incognito', 'test');
           localStorage.removeItem('test_incognito');
-        } catch (e) {
+        } catch {
           // 某些浏览器在无痕模式下禁用 localStorage
           isIncognito = true;
           detectionMethods.push('localStorage');
@@ -141,8 +137,16 @@ function App() {
     }
 
     console.log("Detection Result - isIncognito:", isIncognito, "Methods:", detectionMethods);
-    setIsPrivate(isIncognito);
+    if (!privateModeConfirmedRef.current) {
+      setIsPrivate(isIncognito);
+    }
   };
+
+  useEffect(() => {
+    if (!privateModeConfirmedRef.current) {
+      Promise.resolve().then(detectIncognito);
+    }
+  }, []); */
 
   const navGroups = [
     {
@@ -215,14 +219,14 @@ function App() {
   };
 
   // 如果探测为普通模式 (isPrivate === false)，拦截并显示提醒页
-  if (isPrivate === false) {
-    return <SecurityNotice />;
-  }
+  // if (isPrivate === false) {
+  //   return <SecurityNotice onConfirmPrivateMode={handlePrivateModeConfirmed} />;
+  // }
 
   // 探测中显示空白或加载态
-  if (isPrivate === null) {
-    return <div style={{ background: '#0f172a', minHeight: '100vh' }} />;
-  }
+  // if (isPrivate === null) {
+  //   return <div style={{ background: '#0f172a', minHeight: '100vh' }} />;
+  // }
 
   // 仅在 isPrivate === true (无痕模式) 时渲染主应用
   return (
