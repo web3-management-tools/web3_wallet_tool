@@ -173,24 +173,41 @@
   flex: 1;
 }
 
-.project-select-row .input-group {
-  flex: 1;
-}
-
 .project-select-row .input-group label {
   display: flex;
   align-items: center;
   gap: 6px;
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--text-secondary);
+  margin-bottom: 6px;
 }
 
 .project-select {
-  height: 38px;
-  padding: 0 10px;
+  height: 42px;
+  padding: 0 12px;
   background: var(--bg-main);
   border: 1px solid var(--border-color);
   border-radius: var(--radius-sm);
-  font-size: 0.875rem;
+  font-size: 14px;
   width: 100%;
+}
+
+.get-addresses-btn {
+  height: 42px;
+  padding: 0 16px;
+  background: var(--primary-color);
+  color: white;
+  border: none;
+  border-radius: var(--radius-sm);
+  font-weight: 700;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  transition: var(--transition);
+  white-space: nowrap;
+  margin-bottom: 8px;
 }
 
 .get-addresses-btn {
