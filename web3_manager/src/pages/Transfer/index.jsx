@@ -21,13 +21,12 @@ import { ethers } from 'ethers';
 import * as XLSX from 'xlsx';
 import { walletList, getWalletProjects, batchQueryMapping } from '../../api/wallet';
 import { decryptPrivateKey } from '../../utils/crypto';
-import PasswordInput from '../../components/PasswordInput';
+import { getGlobalPwd } from '../../utils/globalPwd';
 import './index.css';
 
 import { COMMON_NETWORKS } from '../../utils/constants';
 
 export default function Transfer() {
-  const [password, setPassword] = useState('');
   const [project, setProject] = useState('');
   const [projectInput, setProjectInput] = useState('');
   const [showProjectDropdown, setShowProjectDropdown] = useState(false);
@@ -39,6 +38,7 @@ export default function Transfer() {
   const [tokenAddress, setTokenAddress] = useState('');
   const [tokenSymbol, setTokenSymbol] = useState('');
   const [tokenDecimals, setTokenDecimals] = useState(18);
+  const [tokenInfoStatus, setTokenInfoStatus] = useState('idle'); // idle|loading|ok|error — ERC20 精度(decimals)获取状态
   const [amountMode, setAmountMode] = useState('fixed');
   const [batchAmount, setBatchAmount] = useState('');
   const [randomRange, setRandomRange] = useState({ min: '', max: '' });
@@ -50,6 +50,15 @@ export default function Transfer() {
   const [loading, setLoading] = useState(false);
   const [fetchingBalances, setFetchingBalances] = useState(false);
   const [message, setMessage] = useState(null);
+
+  // 多对一归集（统一目标模式）
+  const [targetMode, setTargetMode] = useState('mapping'); // 'mapping'(按映射) | 'unified'(统一目标/归集)
+  const [unifiedTarget, setUnifiedTarget] = useState(''); // 统一目标地址（纯勾选，不可手输）
+  const [targetProjectInput, setTargetProjectInput] = useState('');
+  const [showTargetDropdown, setShowTargetDropdown] = useState(false);
+  const [targetAddrList, setTargetAddrList] = useState([]); // 目标项目的地址列表（供勾选）
+  const [loadingTargets, setLoadingTargets] = useState(false);
+  const [showConfirm, setShowConfirm] = useState(false); // 归集执行前的确认预览
 
   useEffect(() => {
     loadProjects();
@@ -99,22 +108,41 @@ export default function Transfer() {
   }, [network, isCustomRpc, customRpc]);
 
   useEffect(() => {
-    if (tokenType === 'erc20' && ethers.isAddress(tokenAddress)) {
-      const rpcUrl = getActiveRpc();
-      if (rpcUrl) {
-        const fetchTokenInfo = async (addr) => {
-          try {
-            const provider = new ethers.JsonRpcProvider(rpcUrl);
-            const abi = ["function symbol() view returns (string)", "function decimals() view returns (uint8)"];
-            const contract = new ethers.Contract(addr, abi, provider);
-            const [symbol, decimals] = await Promise.all([contract.symbol(), contract.decimals()]);
-            setTokenSymbol(symbol);
-            setTokenDecimals(Number(decimals));
-          } catch (e) { console.error(e); }
-        };
-        fetchTokenInfo(tokenAddress);
-      }
+    if (tokenType !== 'erc20' || !ethers.isAddress(tokenAddress)) {
+      setTokenInfoStatus('idle');
+      return;
     }
+    const addr = tokenAddress;
+    const rpcs = getRpcList();
+    const fetchTokenInfo = async () => {
+      setTokenInfoStatus('loading');
+      // 多 RPC 重试：ETH 主网默认第一个 RPC(flashbots) 是交易型/MEV RPC，
+      // 浏览器对它的 eth_call 读请求常失败(不支持/CORS)。单 RPC 无重试会导致
+      // decimals 拿不到、回退默认 18，从而把 6 位代币(如 USDT)余额算成 0.0000。
+      for (const rpcUrl of rpcs) {
+        try {
+          const provider = new ethers.JsonRpcProvider(rpcUrl);
+          const c = new ethers.Contract(addr, [
+            "function symbol() view returns (string)",
+            "function decimals() view returns (uint8)"
+          ], provider);
+          const dec = await c.decimals(); // decimals 是金额计算关键，必须真实拿到
+          if (tokenAddress !== addr) return; // 期间地址变了，丢弃过期结果
+          setTokenDecimals(Number(dec));
+          try { setTokenSymbol(await c.symbol()); } catch { setTokenSymbol(''); }
+          setTokenInfoStatus('ok');
+          return;
+        } catch (e) {
+          console.warn(`fetchTokenInfo via ${rpcUrl} failed, try next:`, e?.message || e);
+        }
+      }
+      if (tokenAddress !== addr) return;
+      // 所有 RPC 都失败：精度未知，明确报错并标记，转账逻辑据此阻止，避免金额算错
+      setTokenInfoStatus('error');
+      setTokenSymbol('');
+      setMessage({ type: 'error', text: '无法获取代币精度(decimals)，已阻止转账。请检查合约地址，或换网络/自定义 RPC 重试。' });
+    };
+    fetchTokenInfo();
   }, [tokenAddress, tokenType, network, customRpc, isCustomRpc]);
 
   const loadProjects = async () => {
@@ -151,13 +179,17 @@ export default function Transfer() {
   };
 
   const handleFetchWallets = async () => {
-    if (!password || !project) {
-      setMessage({ type: 'error', text: '请先选择项目并输入钱包密码' });
+    if (!project) {
+      setMessage({ type: 'error', text: '请先选择项目' });
+      return;
+    }
+    if (!getGlobalPwd()) {
+      setMessage({ type: 'error', text: '请先在 系统设置 - 全局密码 配置密码' });
       return;
     }
     setLoading(true);
     try {
-      const res = await walletList({ project, pwd: password });
+      const res = await walletList({ project });
       if (res.success) {
         const wallets = res.data || [];
         const decrypted = await Promise.all(wallets.map(async w => {
@@ -182,10 +214,15 @@ export default function Transfer() {
         const mappingRes = await batchQueryMapping(sourceAddresses);
         const mappingMap = Object.fromEntries((mappingRes.data || []).map(m => [m.sourceAddress.toLowerCase(), m.targetAddress]));
 
-        const tasks = validWallets.map(w => ({
-          from: w.address, privKey: w.privKey, to: mappingMap[w.address.toLowerCase()] || '',
-          balance: '0', amount: '', status: 'pending', txHash: '', error: '', selected: true
-        }));
+        const tasks = validWallets.map(w => {
+          const mappingTo = mappingMap[w.address.toLowerCase()] || '';
+          return {
+            from: w.address, privKey: w.privKey,
+            mappingTo, // 保留原始映射目标，切换模式时可恢复
+            to: targetMode === 'unified' ? unifiedTarget : mappingTo,
+            balance: '0', amount: '', status: 'pending', txHash: '', error: '', selected: true
+          };
+        });
 
         setTransferTasks(tasks);
         if (tasks.length > 0) {
@@ -264,6 +301,11 @@ export default function Transfer() {
 
   const executeTransfer = async (index) => {
     const task = transferTasks[index];
+    // ERC20 安全闸：精度(decimals)未确认时禁止转账，避免用错精度把金额算错（如把 1 USDT 当成 1e12）
+    if (tokenType === 'erc20' && tokenInfoStatus !== 'ok') {
+      updateTask(index, { status: 'error', error: '代币精度未获取，已阻止（请换网络/RPC 重试）' });
+      return;
+    }
     const rpcUrl = getActiveRpc();
 
     // 规范化地址，防止 checksum 错误
@@ -366,8 +408,10 @@ export default function Transfer() {
           gasLimit = (gasLimit * 110n) / 100n;
         } catch (err) {
           console.warn("Gas estimate failed, reverting to default:", err);
-          // 遇到任何估算错误，强制使用默认值
-          gasLimit = tokenType === 'native' ? 21000n : 100000n;
+          // 估算失败的兜底默认值。ERC20 实际多在 4-6 万(USDT 约 41321)，
+          // 用 50000 而非 100000：因 EVM 按 gasLimit×maxFeePerGas 预扣，
+          // 默认过大会让 gas 币(ETH)余额刚好够的钱包被误判 insufficient funds。
+          gasLimit = tokenType === 'native' ? 21000n : 50000n;
         }
 
         // 4. 计算转账金额
@@ -481,10 +525,34 @@ export default function Transfer() {
     updateTask(index, { status: 'error', error: finalMsg });
   };
 
-  const executeAll = async () => {
+  const executeAll = () => {
+    const selected = transferTasks.filter(t => t.selected && t.status !== 'success');
+    if (selected.length === 0) {
+      setMessage({ type: 'error', text: '没有选中的待执行任务' });
+      return;
+    }
+    // 统一目标（归集）模式：校验 + 确认预览
+    if (targetMode === 'unified') {
+      if (!unifiedTarget) {
+        setMessage({ type: 'error', text: '请先在「目标设置」中勾选一个目标地址' });
+        return;
+      }
+      const tgt = unifiedTarget.toLowerCase();
+      if (selected.some(t => t.from.toLowerCase() === tgt)) {
+        setMessage({ type: 'error', text: '目标地址不能是所选源之一（不能自己转给自己），请取消该源或更换目标' });
+        return;
+      }
+      setShowConfirm(true); // 归集不可逆：先弹确认预览，核对后再执行
+      return;
+    }
+    doExecuteAll();
+  };
+
+  const doExecuteAll = async () => {
+    setShowConfirm(false);
     const ready = transferTasks.map((t, i) => t.selected && t.status !== 'success' && t.to ? i : -1).filter(i => i !== -1);
     if (ready.length === 0) {
-      setMessage({ type: 'error', text: '没有选中的待执行任务' });
+      setMessage({ type: 'error', text: '没有选中的待执行任务（请检查目标地址是否已设置）' });
       return;
     }
     setLoading(true);
@@ -540,8 +608,41 @@ export default function Transfer() {
     });
   };
 
+  // 统一目标模式：模式或目标变化时，同步所有任务的接收方
+  useEffect(() => {
+    setTransferTasks(prev => prev.map(t => ({
+      ...t,
+      to: targetMode === 'unified' ? unifiedTarget : (t.mappingTo || '')
+    })));
+  }, [targetMode, unifiedTarget]);
+
   const toggleSelectAll = (checked) => {
     setTransferTasks(prev => prev.map(t => ({ ...t, selected: checked })));
+  };
+
+  // 目标项目：拉取该项目地址供勾选（统一目标模式，纯勾选不解密，故 pwd:'1'）
+  const loadTargetAddresses = async (proj) => {
+    setLoadingTargets(true);
+    setUnifiedTarget('');
+    try {
+      const res = await walletList({ project: proj, pwd: '1' });
+      if (res.success) {
+        setTargetAddrList((res.data || []).map(w => ({ address: w.address, remark: w.remark || '' })));
+      } else {
+        setTargetAddrList([]);
+        setMessage({ type: 'error', text: res.msg || '加载目标地址失败' });
+      }
+    } catch (e) {
+      setTargetAddrList([]);
+      setMessage({ type: 'error', text: e.message });
+    } finally {
+      setLoadingTargets(false);
+    }
+  };
+  const handleTargetProjectSelect = (p) => {
+    setTargetProjectInput(p);
+    setShowTargetDropdown(false);
+    loadTargetAddresses(p);
   };
 
   return (
@@ -595,14 +696,69 @@ export default function Transfer() {
                 )}
               </div>
             </div>
-            <div className="input-group">
-              <label>钱包密码</label>
-              <PasswordInput value={password} onChange={setPassword} />
-            </div>
             <button className="fetch-btn" onClick={handleFetchWallets} disabled={loading}>
               <RefreshCw size={16} className={loading ? 'spin' : ''} />
               {loading ? '加载中...' : '加载钱包'}
             </button>
+          </div>
+        </div>
+
+        <div className="setup-card target-card">
+          <div className="card-tag">STEP 1.5</div>
+          <h3><Coins size={18} /> 目标设置</h3>
+          <div className="setup-grid">
+            <div className="input-group full-row">
+              <label>目标模式</label>
+              <div className="type-toggle">
+                <button className={targetMode === 'mapping' ? 'active' : ''} onClick={() => setTargetMode('mapping')}>按映射（各源各目标）</button>
+                <button className={targetMode === 'unified' ? 'active' : ''} onClick={() => setTargetMode('unified')}>统一目标（多对一归集）</button>
+              </div>
+            </div>
+            {targetMode === 'unified' && (
+              <>
+                <div className="input-group">
+                  <label>目标项目</label>
+                  <div className="project-autocomplete-container">
+                    <input
+                      type="text"
+                      placeholder="输入目标项目名称搜索..."
+                      value={targetProjectInput}
+                      onChange={(e) => { setTargetProjectInput(e.target.value); setShowTargetDropdown(true); }}
+                      onFocus={() => setShowTargetDropdown(true)}
+                    />
+                    {showTargetDropdown && (
+                      <div className="autocomplete-dropdown">
+                        {projects.filter(p => !targetProjectInput || p.toLowerCase().includes(targetProjectInput.toLowerCase())).length > 0 ? (
+                          projects.filter(p => !targetProjectInput || p.toLowerCase().includes(targetProjectInput.toLowerCase())).map(p => (
+                            <div key={p} className="autocomplete-item" onClick={() => handleTargetProjectSelect(p)}>{p}</div>
+                          ))
+                        ) : (
+                          <div className="autocomplete-item no-result" style={{ cursor: 'default', color: 'var(--text-muted)' }}>无匹配项目</div>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                </div>
+                <div className="input-group full-row">
+                  <label>选择目标地址（勾选，不可手输）</label>
+                  {loadingTargets ? (
+                    <div className="target-list-hint">加载中...</div>
+                  ) : targetAddrList.length > 0 ? (
+                    <div className="target-addr-list">
+                      {targetAddrList.map(a => (
+                        <label key={a.address} className={`target-addr-item ${unifiedTarget === a.address ? 'selected' : ''}`}>
+                          <input type="radio" name="unifiedTarget" checked={unifiedTarget === a.address} onChange={() => setUnifiedTarget(a.address)} />
+                          <span className="ta-remark">{a.remark || '(无备注)'}</span>
+                          <span className="ta-addr">{a.address}</span>
+                        </label>
+                      ))}
+                    </div>
+                  ) : (
+                    <div className="target-list-hint">{targetProjectInput ? '该项目暂无地址，请先在「导入钱包」中导入收款地址' : '请先选择目标项目'}</div>
+                  )}
+                </div>
+              </>
+            )}
           </div>
         </div>
 
@@ -690,6 +846,9 @@ export default function Transfer() {
                 {amountMode === 'remaining' && <input type="text" placeholder="保留" value={remainAmount} onChange={(e) => setRemainAmount(e.target.value)} />}
 
                 <div className="task-actions">
+                  <button className="query-balance-btn" onClick={() => fetchBalances(transferTasks)} disabled={fetchingBalances || transferTasks.length === 0}>
+                    <RefreshCw size={16} className={fetchingBalances ? 'spin' : ''} /> {fetchingBalances ? '查询中...' : '余额查询'}
+                  </button>
                   <button className="retry-btn" onClick={retryFailed} disabled={loading || !transferTasks.some(t => t.selected && t.status === 'error')}>
                     <RotateCcw size={16} /> 重试失败
                   </button>
@@ -700,6 +859,12 @@ export default function Transfer() {
               </div>
             </div>
           </div>
+
+          {targetMode === 'unified' && unifiedTarget && (
+            <div className="unified-target-banner">
+              <ArrowRight size={16} /> 全部归集至：<span className="utb-addr">{unifiedTarget}</span>
+            </div>
+          )}
 
           <div className="task-grid-view">
             {transferTasks.length > 0 ? (
@@ -763,13 +928,17 @@ export default function Transfer() {
                         </td>
                         <td><ArrowRight size={14} className="sep-icon" /></td>
                         <td>
-                          <input
-                            type="text"
-                            className="inline-addr-input"
-                            value={task.to}
-                            onChange={(e) => updateTask(index, { to: e.target.value })}
-                            placeholder="目标地址"
-                          />
+                          {targetMode === 'unified' ? (
+                            <span className="addr-mono unified-to" title={task.to}>{task.to || '未选目标'}</span>
+                          ) : (
+                            <input
+                              type="text"
+                              className="inline-addr-input"
+                              value={task.to}
+                              onChange={(e) => updateTask(index, { to: e.target.value })}
+                              placeholder="目标地址"
+                            />
+                          )}
                         </td>
                         <td>
                           <div className="amount-cell">
@@ -802,6 +971,29 @@ export default function Transfer() {
           </div>
         </div>
       </section>
+
+      {showConfirm && (
+        <div className="confirm-overlay" onClick={() => setShowConfirm(false)}>
+          <div className="confirm-modal" onClick={(e) => e.stopPropagation()}>
+            <h3><AlertCircle size={18} /> 确认归集（不可逆）</h3>
+            <div className="confirm-body">
+              <div className="confirm-row"><span>源钱包</span><b>{transferTasks.filter(t => t.selected && t.status !== 'success').length} 个</b></div>
+              <div className="confirm-row"><span>目标地址</span><b className="confirm-target">{unifiedTarget}</b></div>
+              <div className="confirm-row"><span>金额模式</span><b>{({ fixed: '固定', full: '全额', random: '随机', remaining: '剩余' })[amountMode]}{amountMode === 'fixed' && batchAmount ? ` ${batchAmount}` : ''}</b></div>
+              <div className="confirm-sources-label">将从以下源转出：</div>
+              <div className="confirm-sources">
+                {transferTasks.filter(t => t.selected && t.status !== 'success').map((t, i) => (
+                  <div key={i} className="cs-row">{t.from}</div>
+                ))}
+              </div>
+            </div>
+            <div className="confirm-actions">
+              <button className="confirm-cancel" onClick={() => setShowConfirm(false)}>取消</button>
+              <button className="confirm-ok" onClick={doExecuteAll}>确认归集</button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {message && (
         <div className={`toast-msg ${message.type}`}>
