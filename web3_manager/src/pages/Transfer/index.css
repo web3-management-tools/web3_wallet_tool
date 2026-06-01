@@ -227,6 +227,43 @@
   border-radius: 4px;
 }
 
+/* ERC20 常用代币快捷选择（USDT / USDC） */
+.quick-token-row {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 8px;
+}
+
+.quick-token-label {
+  font-size: 0.75rem;
+  color: var(--text-secondary);
+}
+
+.quick-token-chip {
+  border: 1px solid var(--border-color);
+  background: var(--bg-main);
+  color: var(--text-secondary);
+  font-size: 0.78rem;
+  font-weight: 700;
+  padding: 4px 12px;
+  border-radius: 999px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.quick-token-chip:hover {
+  border-color: var(--primary-color);
+  color: var(--primary-color);
+}
+
+.quick-token-chip.active {
+  background: var(--primary-color);
+  border-color: var(--primary-color);
+  color: white;
+}
+
 /* Tasks Styles */
 .tasks-section {
   background: white;

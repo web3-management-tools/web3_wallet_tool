@@ -24,7 +24,7 @@ import { decryptPrivateKey } from '../../utils/crypto';
 import { getGlobalPwd } from '../../utils/globalPwd';
 import './index.css';
 
-import { COMMON_NETWORKS } from '../../utils/constants';
+import { COMMON_NETWORKS, COMMON_TOKENS } from '../../utils/constants';
 
 export default function Transfer() {
   const [project, setProject] = useState('');
@@ -645,6 +645,11 @@ export default function Transfer() {
     loadTargetAddresses(p);
   };
 
+  // 当前网络下的常用代币（USDT/USDC）快捷项；自定义 RPC 时链未知，不展示以免填错地址
+  const quickTokens = (!isCustomRpc && COMMON_TOKENS[network.chainId])
+    ? Object.entries(COMMON_TOKENS[network.chainId]).map(([sym, addr]) => ({ sym, addr }))
+    : [];
+
   return (
     <div className="transfer-page">
       <div className="transfer-header">
@@ -793,6 +798,22 @@ export default function Transfer() {
                   <input type="text" placeholder="0x..." value={tokenAddress} onChange={(e) => setTokenAddress(e.target.value)} />
                   {tokenSymbol && <span className="token-badge">{tokenSymbol} ({tokenDecimals})</span>}
                 </div>
+                {quickTokens.length > 0 && (
+                  <div className="quick-token-row">
+                    <span className="quick-token-label">常用代币</span>
+                    {quickTokens.map(({ sym, addr }) => (
+                      <button
+                        key={sym}
+                        type="button"
+                        className={`quick-token-chip ${tokenAddress.toLowerCase() === addr.toLowerCase() ? 'active' : ''}`}
+                        onClick={() => setTokenAddress(addr)}
+                        title={addr}
+                      >
+                        {sym}
+                      </button>
+                    ))}
+                  </div>
+                )}
               </div>
             )}
             <div className="input-group">
