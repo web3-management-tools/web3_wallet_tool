@@ -220,7 +220,7 @@ export default function Transfer() {
             from: w.address, privKey: w.privKey,
             mappingTo, // 保留原始映射目标，切换模式时可恢复
             to: targetMode === 'unified' ? unifiedTarget : mappingTo,
-            balance: '0', amount: '', status: 'pending', txHash: '', error: '', selected: true
+            balance: null, amount: '', status: 'pending', txHash: '', error: '', selected: true // balance:null 表示「尚未查询」，余额查询后才填充并显示
           };
         });
 
@@ -235,46 +235,74 @@ export default function Transfer() {
 
   const fetchBalances = async (currentTasks) => {
     const rpcList = getRpcList();
-    if (rpcList.length === 0 || currentTasks.length === 0) return;
+    if (rpcList.length === 0 || currentTasks.length === 0) {
+      setMessage({ type: 'error', text: '请先在 STEP 1 加载钱包，或检查 RPC 配置' });
+      return;
+    }
+    // ERC20 必须有有效合约地址，否则 balanceOf 会全部失败
+    if (tokenType === 'erc20' && !ethers.isAddress(tokenAddress)) {
+      setMessage({ type: 'error', text: '请先填写有效的 ERC20 合约地址' });
+      return;
+    }
     setFetchingBalances(true);
 
-    // 尝试可用RPC
-    let provider = null;
-    let connectedRpc = '';
+    // 读单个地址余额（native 或 erc20），provider 选定与实际查询都复用它
+    const readOne = async (prov, addr) => {
+      if (tokenType === 'native') {
+        return ethers.formatEther(await prov.getBalance(addr));
+      }
+      const c = new ethers.Contract(tokenAddress, ["function balanceOf(address) view returns (uint256)"], prov);
+      return ethers.formatUnits(await c.balanceOf(addr), tokenDecimals);
+    };
 
+    // 选一个「真的能查余额」的 RPC：直接用实际的 getBalance/balanceOf(第一个地址) 做探测，
+    // 而非 getBlockNumber——像 ETH 主网首个 flashbots 这类交易型 RPC 能答 blockNumber，
+    // 却不服务 eth_getBalance/eth_call，会让余额查询全部失败。用真实读探测可把它跳过。
+    let provider = null;
+    let probeErr = null;
     for (const url of rpcList) {
       try {
         const p = new ethers.JsonRpcProvider(url);
-        await p.getNetwork(); // 测试连接
+        await readOne(p, currentTasks[0].from); // 真实读探测
         provider = p;
-        connectedRpc = url;
         break;
       } catch (e) {
-        console.warn(`RPC ${url} 无法连接，切换下一个...`);
+        probeErr = e;
+        console.warn(`RPC ${url} 不可用于余额查询，切换下一个...`, e?.shortMessage || e?.message || e);
       }
     }
 
     if (!provider) {
-      setMessage({ type: 'error', text: '所有RPC节点均无法连接，请检查网络' });
+      const reason = probeErr?.shortMessage || probeErr?.message || '所有 RPC 均不可用';
+      setMessage({ type: 'error', text: `余额查询失败：${reason}（请换网络/自定义 RPC，或检查合约地址）` });
       setFetchingBalances(false);
       return;
     }
 
     try {
+      let okCount = 0, failCount = 0, firstErr = null;
       const updatedTasks = await Promise.all(currentTasks.map(async (task) => {
         try {
-          if (tokenType === 'native') {
-            const balance = await provider.getBalance(task.from);
-            return { ...task, balance: ethers.formatEther(balance) };
-          } else {
-            const abi = ["function balanceOf(address) view returns (uint256)"];
-            const contract = new ethers.Contract(tokenAddress, abi, provider);
-            const balance = await contract.balanceOf(task.from);
-            return { ...task, balance: ethers.formatUnits(balance, tokenDecimals) };
-          }
-        } catch (e) { return task; }
+          const balanceStr = await readOne(provider, task.from);
+          okCount++;
+          return { ...task, balance: balanceStr };
+        } catch (e) {
+          failCount++;
+          if (!firstErr) firstErr = e;
+          console.warn(`查询 ${task.from} 余额失败:`, e?.shortMessage || e?.message || e);
+          return task;
+        }
       }));
       setTransferTasks(updatedTasks);
+      // 明确反馈结果，避免「点了没反应」的错觉；失败时带上真实原因便于排查
+      if (okCount > 0 && failCount === 0) {
+        setMessage({ type: 'success', text: `余额查询完成（${okCount} 个）` });
+      } else if (okCount > 0) {
+        setMessage({ type: 'success', text: `余额查询完成：成功 ${okCount}，失败 ${failCount}` });
+      } else {
+        const reason = firstErr?.shortMessage || firstErr?.message || '未知错误';
+        setMessage({ type: 'error', text: `余额查询失败：${reason}` });
+      }
     } finally { setFetchingBalances(false); }
   };
 
@@ -943,7 +971,7 @@ export default function Transfer() {
                           <div className="wallet-info">
                             <span className="addr-mono">{task.from}</span>
                             <span className="bal-text">
-                              {task.status === 'pending' ? '' : `${parseFloat(task.balance).toFixed(4)} ${tokenType === 'native' ? 'ETH' : tokenSymbol}`}
+                              {task.balance == null ? '' : `${parseFloat(task.balance).toFixed(4)} ${tokenType === 'native' ? 'ETH' : tokenSymbol}`}
                             </span>
                           </div>
                         </td>
