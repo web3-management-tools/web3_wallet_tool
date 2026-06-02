@@ -192,63 +192,15 @@ def withdraw(exchange_name, pwd, to_address, network, coin, amount):
         return {'success': False, 'msg': '创建交易所客户端失败', 'data': None}
 
     try:
-        # 4. 执行提现
-        # CCXT withdraw 方法签名: withdraw(code, amount, address, tag=None, params={})
-        # network 参数需要通过 params 字典传递，键名为 'network'
+        # 4. 执行提现（CCXT 统一接口，所有交易所调用方式一致）
         params = {'network': network}
-
-        if platform == 'binance':
-            # Binance 提现
-            response = client.withdraw(
-                code=coin,
-                amount=amount,
-                address=to_address,
-                tag=None,  # 大部分代币不需要tag
-                params=params
-            )
-
-        elif platform == 'bitget':
-            # Bitget 提现 (必须提供 network 参数)
-            response = client.withdraw(
-                code=coin,
-                amount=amount,
-                address=to_address,
-                tag=None,
-                params=params
-            )
-
-        elif platform == 'okx':
-            # OKX 提现
-            response = client.withdraw(
-                code=coin,
-                amount=amount,
-                address=to_address,
-                tag=None,
-                params=params
-            )
-
-        elif platform == 'gate':
-            # Gate 提现
-            response = client.withdraw(
-                code=coin,
-                amount=amount,
-                address=to_address,
-                tag=None,
-                params=params
-            )
-
-        elif platform == 'bybit':
-            # Bybit 提现
-            response = client.withdraw(
-                code=coin,
-                amount=amount,
-                address=to_address,
-                tag=None,
-                params=params
-            )
-
-        else:
-            return {'success': False, 'msg': f'不支持的平台: {platform}', 'data': None}
+        response = client.withdraw(
+            code=coin,
+            amount=amount,
+            address=to_address,
+            tag=None,
+            params=params
+        )
 
         logger.info(f'[withdraw] 提现成功: {response}')
         return {
@@ -335,112 +287,52 @@ def get_withdraw_fee(exchange_name, pwd, coin, network):
 
     try:
         # 4. 查询提现费用
+        # Binance 使用 fetch_networks，其他交易所使用 fetch_currencies
         if platform == 'binance':
-            # Binance 需要查询网络信息
             networks = client.fetch_networks(coin)
-            if network in networks:
-                network_info = networks[network]
-                return {
-                    'success': True,
-                    'data': {
-                        'coin': coin,
-                        'network': network,
-                        'fee': network_info.get('withdrawFee', 'N/A'),
-                        'min_withdraw': network_info.get('withdrawMin', 'N/A'),
-                        'enabled': network_info.get('enabled', False)
-                    }
+            if network not in networks:
+                return {'success': False, 'msg': f'未找到网络: {network}', 'data': None}
+            network_info = networks[network]
+            return {
+                'success': True,
+                'data': {
+                    'coin': coin,
+                    'network': network,
+                    'fee': network_info.get('withdrawFee', 'N/A'),
+                    'min_withdraw': network_info.get('withdrawMin', 'N/A'),
+                    'enabled': network_info.get('enabled', False)
                 }
-            else:
-                return {'success': False, 'msg': f'未找到网络: {network}', 'data': None}
-
-        elif platform == 'bitget':
-            # Bitget 查询币种信息
-            currencies = client.fetch_currencies()
-            if coin in currencies:
-                currency = currencies[coin]
-                networks = currency.get('networks', {})
-                if network in networks:
-                    network_info = networks[network]
-                    return {
-                        'success': True,
-                        'data': {
-                            'coin': coin,
-                            'network': network,
-                            'fee': network_info.get('fee', 'N/A'),
-                            'min_withdraw': network_info.get('limits', {}).get('withdraw', {}).get('min', 'N/A')
-                        }
-                    }
-                else:
-                    return {'success': False, 'msg': f'未找到网络: {network}', 'data': None}
-            else:
-                return {'success': False, 'msg': f'未找到币种: {coin}', 'data': None}
-
-        elif platform == 'okx':
-            # OKX 查询币种信息
-            currencies = client.fetch_currencies()
-            if coin in currencies:
-                currency = currencies[coin]
-                networks = currency.get('networks', {})
-                for net_code, network_info in networks.items():
-                    if network.upper() in net_code.upper():
-                        return {
-                            'success': True,
-                            'data': {
-                                'coin': coin,
-                                'network': network,
-                                'fee': network_info.get('fee', 'N/A'),
-                                'min_withdraw': network_info.get('limits', {}).get('withdraw', {}).get('min', 'N/A')
-                            }
-                        }
-                return {'success': False, 'msg': f'未找到网络: {network}', 'data': None}
-            else:
-                return {'success': False, 'msg': f'未找到币种: {coin}', 'data': None}
-
-        elif platform == 'gate':
-            # Gate 查询币种信息
-            currencies = client.fetch_currencies()
-            if coin in currencies:
-                currency = currencies[coin]
-                networks = currency.get('networks', {})
-                if network in networks:
-                    network_info = networks[network]
-                    return {
-                        'success': True,
-                        'data': {
-                            'coin': coin,
-                            'network': network,
-                            'fee': network_info.get('fee', 'N/A'),
-                            'min_withdraw': network_info.get('limits', {}).get('withdraw', {}).get('min', 'N/A')
-                        }
-                    }
-                else:
-                    return {'success': False, 'msg': f'未找到网络: {network}', 'data': None}
-            else:
-                return {'success': False, 'msg': f'未找到币种: {coin}', 'data': None}
-
-        elif platform == 'bybit':
-            # Bybit 查询币种信息
-            currencies = client.fetch_currencies()
-            if coin in currencies:
-                currency = currencies[coin]
-                networks = currency.get('networks', {})
-                for net_code, network_info in networks.items():
-                    if network.upper() in net_code.upper():
-                        return {
-                            'success': True,
-                            'data': {
-                                'coin': coin,
-                                'network': network,
-                                'fee': network_info.get('fee', 'N/A'),
-                                'min_withdraw': network_info.get('limits', {}).get('withdraw', {}).get('min', 'N/A')
-                            }
-                        }
-                return {'success': False, 'msg': f'未找到网络: {network}', 'data': None}
-            else:
-                return {'success': False, 'msg': f'未找到币种: {coin}', 'data': None}
-
+            }
         else:
-            return {'success': False, 'msg': f'不支持的平台: {platform}', 'data': None}
+            # 通用逻辑：fetch_currencies -> networks -> 精确匹配或模糊匹配
+            currencies = client.fetch_currencies()
+            if coin not in currencies:
+                return {'success': False, 'msg': f'未找到币种: {coin}', 'data': None}
+
+            currency_networks = currencies[coin].get('networks', {})
+
+            # 精确匹配
+            network_info = currency_networks.get(network)
+
+            # 模糊匹配（OKX/Bybit 的 network key 可能不完全一致）
+            if not network_info:
+                for net_code, net_info in currency_networks.items():
+                    if network.upper() in net_code.upper():
+                        network_info = net_info
+                        break
+
+            if not network_info:
+                return {'success': False, 'msg': f'未找到网络: {network}', 'data': None}
+
+            return {
+                'success': True,
+                'data': {
+                    'coin': coin,
+                    'network': network,
+                    'fee': network_info.get('fee', 'N/A'),
+                    'min_withdraw': network_info.get('limits', {}).get('withdraw', {}).get('min', 'N/A')
+                }
+            }
 
     except Exception as e:
         logger.error(f'[get_withdraw_fee] 查询失败: {e}')
