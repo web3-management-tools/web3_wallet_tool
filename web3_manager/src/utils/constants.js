@@ -13,6 +13,14 @@ export const COMMON_NETWORKS = [
     { name: 'Metis', chainId: 1088, rpcs: ['https://andromeda.metis.io/?owner=1088', 'https://metis.publicnode.com'] },
 ];
 
+// 「只发送交易、不服务读方法」的 RPC 黑名单。
+// 这类 RPC 用于私有打包/防夹（如 flashbots Protect），eth_call 会返回 403「rpc method is not whitelisted」，
+// 但 eth_getBalance / eth_blockNumber 可用——所以原生币余额能查、ERC20 余额(balanceOf 走 eth_call)会全失败。
+// 读取（余额/精度/Gas）请用 getReadRpcList() 过滤掉它们；发送交易仍可用（享私有打包优势）。
+export const READ_INCAPABLE_RPCS = new Set([
+    'https://rpc.flashbots.net',
+]);
+
 // 常用稳定币合约地址（按 chainId 区分）。
 // 选择 ERC20 后可在转账页一键填入，省去手动粘贴合约地址。
 // 注意：同一代币在不同链上的合约地址与精度均不同，以下地址均已逐链 on-chain 核对 symbol()/decimals()。

@@ -24,7 +24,7 @@ import { decryptPrivateKey } from '../../utils/crypto';
 import { getGlobalPwd } from '../../utils/globalPwd';
 import './index.css';
 
-import { COMMON_NETWORKS, COMMON_TOKENS } from '../../utils/constants';
+import { COMMON_NETWORKS, COMMON_TOKENS, READ_INCAPABLE_RPCS } from '../../utils/constants';
 
 export default function Transfer() {
   const [project, setProject] = useState('');
@@ -85,12 +85,18 @@ export default function Transfer() {
     return currentDef?.rpcs || [network.rpc];
   };
   const getActiveRpc = () => getRpcList()[0];
+  // 读类 RPC（余额/精度/Gas）：剔除「只发交易、拒绝 eth_call」的 RPC（如 flashbots，eth_call 返回 403）。
+  // 发送交易仍用 getRpcList()（flashbots 优先，享私有打包防夹）。
+  const getReadRpcList = () => {
+    const reads = getRpcList().filter(u => !READ_INCAPABLE_RPCS.has(u));
+    return reads.length ? reads : getRpcList(); // 兜底：全被过滤（如自定义 RPC 命中黑名单）时退回原列表
+  };
 
   // 自动刷新当前 Gas 价格
   useEffect(() => {
     const fetchGas = async () => {
       try {
-        const rpc = getActiveRpc();
+        const rpc = getReadRpcList()[0]; // Gas 读取也走 eth_* 读方法，避开 flashbots
         if (!rpc) return;
         const provider = new ethers.JsonRpcProvider(rpc);
         const feeData = await provider.getFeeData();
@@ -113,12 +119,11 @@ export default function Transfer() {
       return;
     }
     const addr = tokenAddress;
-    const rpcs = getRpcList();
+    const rpcs = getReadRpcList(); // 读 decimals 走 eth_call，需排除 flashbots 这类只发交易的 RPC
     const fetchTokenInfo = async () => {
       setTokenInfoStatus('loading');
-      // 多 RPC 重试：ETH 主网默认第一个 RPC(flashbots) 是交易型/MEV RPC，
-      // 浏览器对它的 eth_call 读请求常失败(不支持/CORS)。单 RPC 无重试会导致
-      // decimals 拿不到、回退默认 18，从而把 6 位代币(如 USDT)余额算成 0.0000。
+      // 多 RPC 失败转移；读类 RPC 已由 getReadRpcList 过滤掉拒绝 eth_call 的交易型 RPC(如 flashbots)。
+      // decimals 必须真实拿到，否则回退默认 18 会把 6 位代币(如 USDT)余额算成 0.0000。
       for (const rpcUrl of rpcs) {
         try {
           const provider = new ethers.JsonRpcProvider(rpcUrl);
@@ -234,7 +239,7 @@ export default function Transfer() {
   };
 
   const fetchBalances = async (currentTasks) => {
-    const rpcList = getRpcList();
+    const rpcList = getReadRpcList();
     if (rpcList.length === 0 || currentTasks.length === 0) {
       setMessage({ type: 'error', text: '请先在 STEP 1 加载钱包，或检查 RPC 配置' });
       return;
